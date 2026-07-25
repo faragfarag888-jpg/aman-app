@@ -382,7 +382,7 @@ function pctOf(n){ return n.totals.tgt>0 ? n.totals.cm/n.totals.tgt*100 : 0; }
 function paceIndexOf(n){ if(n.totals.tgt<=0) return 0; return (n.totals.cm/n.totals.tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100; }
 function statusOf(n){ if(n.totals.tgt<=0) return 'nodata'; const pi=paceIndexOf(n); return pi>=100?'ahead':pi>=85?'ontrack':'behind'; }
 function statusColor(s){ return s==='ahead'?'var(--green)':s==='ontrack'?'var(--amber)':s==='behind'?'var(--red)':'var(--muted)'; }
-function statusLabel(s){ return s==='ahead'?'متقدم':s==='ontrack'?'على المسار':s==='behind'?'متأخر':'لا يوجد هدف'; }
+function statusLabel(s){ return s==='ahead'?'متقدم':s==='ontrack'?'على المسار':s==='behind'?'متأخر — يحتاج تسريع فورًا':'لا يوجد هدف'; }
 function initials(name){ return (name||'?').trim().split(' ').slice(0,2).map(w=>w[0]).join(''); }
 function isVacant(name){ return /vacant/i.test(name); }
 function growthOf(n){ return n.totals.lm>0 ? (n.totals.cm-n.totals.lm)/n.totals.lm*100 : null; }
@@ -731,9 +731,13 @@ function renderDashProduct(node){
     const tgt = node.byProduct[p].tgt, cm = node.byProduct[p].cm;
     const rem = Math.max(tgt-cm,0), pv = tgt>0?cm/tgt*100:0;
     const s = tgt<=0?'nodata':((cm/tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100>=100?'ahead':(cm/tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100>=85?'ontrack':'behind');
-    html += `<tr><td style="font-weight:800;">${p}</td><td class="num">${fmt(tgt)}</td><td class="num">${fmt(cm)}</td>
-      <td class="progress-cell"><span class="pct-txt">${tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
-      <td class="num">${fmt(rem)}</td><td><span class="status ${s}">${statusLabel(s)}</span></td></tr>`;
+    const dangerColor = s==='behind' ? 'var(--red)' : (s==='ahead' ? 'var(--green)' : '#16202E');
+    html += `<tr><td style="font-weight:800;">${p}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(tgt)}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(cm)}</td>
+      <td class="progress-cell"><span class="pct-txt" style="font-weight:800; color:${dangerColor};">${tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(rem)}</td>
+      <td><span class="status ${s}">${statusLabel(s)}</span></td></tr>`;
   });
   html += `</tbody></table>`;
   document.getElementById('dProductTableWrap').innerHTML = html;
@@ -827,38 +831,61 @@ document.querySelectorAll('.nav-item').forEach(item=>{
 
 let compareChart=null, productChart=null;
 
-/* ===================== شارت أعمدة بديل بدون أي مكتبة خارجية (SVG صرف) ===================== */
+/* ===================== شارت أعمدة احترافي (SVG صرف بدون أي مكتبة خارجية) ===================== */
 function fmtM(v){ return (v/1000000).toFixed(1)+'م'; }
+let __chartGradId = 0;
 function drawBarChart(containerId, labels, datasets, height, opts){
   opts = opts || {};
-  const showValues = opts.showValues && labels.length <= 12;
-  height = height || 230;
+  const showValues = labels.length <= 12;
+  height = height || 240;
   const el = document.getElementById(containerId);
   const width = 900;
-  const pad = {top: showValues?48:34, right:14, bottom:56, left:56};
+  const pad = {top: 46, right:14, bottom:58, left:60};
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
   const maxVal = Math.max(1, ...datasets.flatMap(d=>d.data));
   const n = Math.max(labels.length,1);
   const groupW = plotW / n;
-  const gap = Math.max(3, groupW*0.08);
+  const gap = Math.max(3, groupW*0.1);
   const barW = Math.max(2,(groupW - gap*(datasets.length+1)) / datasets.length);
-  const valFont = Math.max(8, Math.min(11, barW/3.4));
+  const valFont = Math.max(8, Math.min(11.5, barW/3.2));
+  const gid = 'barGrad' + (__chartGradId++);
 
   let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="overflow:visible;">`;
+  svg += `<defs>
+    <linearGradient id="${gid}-achieved" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#027E8F"/>
+      <stop offset="100%" stop-color="#12C2B5"/>
+    </linearGradient>
+    <linearGradient id="${gid}-target" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#D6D9DD"/>
+      <stop offset="100%" stop-color="#EEF0F2"/>
+    </linearGradient>
+  </defs>`;
+
+  // خلفية بيضاء كاملة للرسم
+  svg += `<rect x="0" y="0" width="${width}" height="${height}" fill="transparent"/>`;
+
   const gridN = 4;
   for(let i=0;i<=gridN;i++){
     const y = pad.top + plotH - (plotH*i/gridN);
     const val = maxVal*i/gridN;
-    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width-pad.right}" y2="${y.toFixed(1)}" stroke="#EEF1F5" stroke-width="1"/>`;
-    svg += `<text x="${pad.left-8}" y="${(y+4).toFixed(1)}" font-size="11" fill="#71808F" text-anchor="end" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
+    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width-pad.right}" y2="${y.toFixed(1)}" stroke="#EEF2F6" stroke-width="1"/>`;
+    svg += `<text x="${pad.left-10}" y="${(y+4).toFixed(1)}" font-size="11.5" fill="#8894A3" font-weight="600" text-anchor="end" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
   }
+  // خط القاعدة أوضح
+  svg += `<line x1="${pad.left}" y1="${(pad.top+plotH).toFixed(1)}" x2="${width-pad.right}" y2="${(pad.top+plotH).toFixed(1)}" stroke="#C7D2DC" stroke-width="1.5"/>`;
+
+  // مفتاح توضيحي (Legend) واضح فوق
   let legendX = pad.left;
   datasets.forEach(ds=>{
-    svg += `<rect x="${legendX}" y="6" width="10" height="10" rx="2" fill="${ds.color}"/>`;
-    svg += `<text x="${legendX+14}" y="15" font-size="11" font-weight="700" fill="#16202E" font-family="Tajawal,sans-serif">${ds.label}</text>`;
-    legendX += 14 + ds.label.length*7.2 + 22;
+    const isAchieved = ds.color !== '#DCE3EC';
+    const fillRef = isAchieved ? `url(#${gid}-achieved)` : ds.color;
+    svg += `<rect x="${legendX}" y="8" width="14" height="14" rx="4" fill="${fillRef}"/>`;
+    svg += `<text x="${legendX+19}" y="19" font-size="12.5" font-weight="800" fill="#16202E" font-family="Tajawal,sans-serif">${ds.label}</text>`;
+    legendX += 19 + ds.label.length*8 + 26;
   });
+
   labels.forEach((lbl,li)=>{
     const groupX = pad.left + li*groupW;
     datasets.forEach((ds,di)=>{
@@ -866,15 +893,31 @@ function drawBarChart(containerId, labels, datasets, height, opts){
       const barH = maxVal>0 ? Math.max(0,(val/maxVal))*plotH : 0;
       const x = groupX + gap + di*(barW+gap);
       const y = pad.top + plotH - barH;
-      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${ds.color}"><title>${ds.label} — ${lbl}: ${fmt(val)}</title></rect>`;
-      if(showValues){
-        const vy = Math.max(pad.top-6, y-6);
-        svg += `<text x="${(x+barW/2).toFixed(1)}" y="${vy.toFixed(1)}" font-size="${valFont.toFixed(1)}" font-weight="700" fill="${ds.color==='#DCE3EC'?'#8894A3':'#027E8F'}" text-anchor="middle" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
+      const isAchieved = ds.color !== '#DCE3EC';
+      const fillRef = isAchieved ? `url(#${gid}-achieved)` : `url(#${gid}-target)`;
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="6" fill="${fillRef}" stroke="${isAchieved?'#02707E':'#B7BBC0'}" stroke-width="0.5"><title>${ds.label} — ${lbl}: ${fmt(val)} ج.م</title></rect>`;
+      if(showValues && barH>2){
+        const vy = Math.max(pad.top-8, y-7);
+        svg += `<text x="${(x+barW/2).toFixed(1)}" y="${vy.toFixed(1)}" font-size="${valFont.toFixed(1)}" font-weight="800" fill="${isAchieved?'#02707E':'#6B7075'}" text-anchor="middle" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
       }
     });
     const labelX = groupX + groupW/2;
-    const shortLbl = lbl.length>15? lbl.slice(0,15)+'…': lbl;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(height-pad.bottom+20).toFixed(1)}" font-size="10.5" fill="#71808F" text-anchor="middle" font-family="Tajawal,sans-serif">${shortLbl}</text>`;
+    const maxCharsPerLine = Math.max(6, Math.floor(groupW/6.6));
+    let line1 = lbl, line2 = '';
+    if(lbl.length > maxCharsPerLine){
+      const words = lbl.split(' ');
+      line1 = ''; line2 = '';
+      words.forEach(w=>{
+        if((line1+' '+w).trim().length <= maxCharsPerLine && !line2){ line1 = (line1+' '+w).trim(); }
+        else { line2 = (line2+' '+w).trim(); }
+      });
+      if(line2.length > maxCharsPerLine){ line2 = line2.slice(0, maxCharsPerLine-1)+'…'; }
+    }
+    const labelY1 = height-pad.bottom + (line2?16:20);
+    svg += `<text x="${labelX.toFixed(1)}" y="${labelY1.toFixed(1)}" font-size="10.5" font-weight="600" fill="#5E6E7E" text-anchor="middle" font-family="Tajawal,sans-serif">${line1}</text>`;
+    if(line2){
+      svg += `<text x="${labelX.toFixed(1)}" y="${(labelY1+13).toFixed(1)}" font-size="10.5" font-weight="600" fill="#5E6E7E" text-anchor="middle" font-family="Tajawal,sans-serif">${line2}</text>`;
+    }
   });
   svg += `</svg>`;
   el.innerHTML = svg;
@@ -984,12 +1027,13 @@ function renderTeamPage(r){
   document.getElementById('teamBody').innerHTML = mates.map((t,i)=>{
     const s = statusOf(t);
     const isMe = t.id === currentUser.username;
+    const dangerColor = s==='behind' ? 'var(--red)' : (s==='ahead' ? 'var(--green)' : '#16202E');
     return `<tr class="${isMe?'me':''}">
       <td>${i+1}</td>
       <td><div class="name-cell"><div class="avatar">${initials(t.name)}</div>${t.name}${isMe?'<span class="you-badge">أنت</span>':''}</div></td>
-      <td>${fmt(t.totals.tgt)}</td>
-      <td>${fmt(t.totals.cm)}</td>
-      <td class="progress-cell"><span class="pct-txt">${t.totals.tgt>0?pctOf(t).toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pctOf(t),100)}%; background:${statusColor(s)}"></div></div></td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(t.totals.tgt)}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(t.totals.cm)}</td>
+      <td class="progress-cell"><span class="pct-txt" style="font-weight:800; color:${dangerColor};">${t.totals.tgt>0?pctOf(t).toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pctOf(t),100)}%; background:${statusColor(s)}"></div></div></td>
       <td><span class="status ${s}">${statusLabel(s)}</span></td>
     </tr>`;
   }).join('');

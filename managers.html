@@ -382,7 +382,7 @@ function pctOf(n){ return n.totals.tgt>0 ? n.totals.cm/n.totals.tgt*100 : 0; }
 function paceIndexOf(n){ if(n.totals.tgt<=0) return 0; return (n.totals.cm/n.totals.tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100; }
 function statusOf(n){ if(n.totals.tgt<=0) return 'nodata'; const pi=paceIndexOf(n); return pi>=100?'ahead':pi>=85?'ontrack':'behind'; }
 function statusColor(s){ return s==='ahead'?'var(--green)':s==='ontrack'?'var(--amber)':s==='behind'?'var(--red)':'var(--muted)'; }
-function statusLabel(s){ return s==='ahead'?'متقدم':s==='ontrack'?'على المسار':s==='behind'?'متأخر':'لا يوجد هدف'; }
+function statusLabel(s){ return s==='ahead'?'متقدم':s==='ontrack'?'على المسار':s==='behind'?'متأخر — يحتاج تسريع فورًا':'لا يوجد هدف'; }
 function initials(name){ return (name||'?').trim().split(' ').slice(0,2).map(w=>w[0]).join(''); }
 function isVacant(name){ return /vacant/i.test(name); }
 function growthOf(n){ return n.totals.lm>0 ? (n.totals.cm-n.totals.lm)/n.totals.lm*100 : null; }
@@ -548,7 +548,48 @@ const ROLE_TAB_DEFS = {
     {type:'SR', label:'مندوب (SR)', ico:'•'},
   ],
 };
+/* ===================== ربط حسابات RSM/ASM/SV بعقدة KPI_DATA الصحيحة (لضمان دقة الأرقام) ===================== */
+let dashUseKpi = false;
+const KPI_REGION_BY_RSM = {};
+const KPI_NODE_BY_ROLE_NAME = {};
+NODES.forEach(n=>{
+  if(n.role==='Region' && n.rsm) KPI_REGION_BY_RSM[n.rsm.trim()] = n.key;
+  if(n.role==='ASM' || n.role==='SV') KPI_NODE_BY_ROLE_NAME[n.role+'::'+n.name.trim()] = n.key;
+});
+function kpiAnchorFor(role, displayName){
+  if(!displayName) return null;
+  const dn = displayName.trim();
+  if(role==='rsm') return KPI_REGION_BY_RSM[dn] || null;
+  if(role==='asm') return KPI_NODE_BY_ROLE_NAME['ASM::'+dn] || null;
+  if(role==='supervisor') return KPI_NODE_BY_ROLE_NAME['SV::'+dn] || null;
+  return null;
+}
+function scopeNode(key){ return dashUseKpi ? BY_KEY[key] : orgNode(key); }
+function scopeChildren(key){
+  if(dashUseKpi) return CHILDREN[key] || [];
+  return orgChildrenOf(key).map(k=> ({...k, ...aggOf(k.id)}));
+}
+function scopeKeyOf(n){ return dashUseKpi ? n.key : n.id; }
+function scopeRoleLabel(type){
+  if(dashUseKpi) return orgRoleLabel(type==='Region'?'RSM':type);
+  return orgRoleLabel(type);
+}
+function scopeIsLeaf(type){ return dashUseKpi ? type==='SR' : type==='SR'; }
+
 function descendantsOfType(rootId, type){
+  if(dashUseKpi){
+    const kpiType = type==='RSM' ? 'Region' : type;
+    const rootNode = BY_KEY[rootId];
+    if(rootNode && rootNode.role === kpiType) return [rootNode];
+    let result = [];
+    (function walk(key){
+      (CHILDREN[key]||[]).forEach(k=>{
+        if(k.role===kpiType) result.push(k);
+        else walk(k.key);
+      });
+    })(rootId);
+    return result;
+  }
   const rootType = NODE_INFO[rootId] ? NODE_INFO[rootId].type : null;
   if(rootType === type) return [NODE_INFO[rootId]];
   let result = [];
@@ -578,7 +619,10 @@ function buildRoleTabs(){
 function selectDashRoleTab(type){
   dashCurrentType = type;
   document.querySelectorAll('.drole-tab').forEach(t=> t.classList.toggle('active', t.dataset.type===type));
-  const isOwnRoot = (type==='Egypt') || (NODE_INFO[dashRootScope] && NODE_INFO[dashRootScope].type===type);
+  const rootNode = scopeNode(dashRootScope);
+  const rootType = rootNode ? (dashUseKpi ? rootNode.role : rootNode.type) : null;
+  const kpiType = (dashUseKpi && type==='RSM') ? 'Region' : type;
+  const isOwnRoot = (type==='Egypt') || (rootType===kpiType);
   const selWrap = document.getElementById('dSelectorWrap');
   selWrap.innerHTML = '';
   if(isOwnRoot){
@@ -589,10 +633,10 @@ function selectDashRoleTab(type){
     const label = document.createElement('label');
     label.textContent = `اختر ${orgRoleLabel(type)}:`;
     const sel = document.createElement('select');
-    list.forEach(n=>{ const opt=document.createElement('option'); opt.value=n.id; opt.textContent=n.name; sel.appendChild(opt); });
+    list.forEach(n=>{ const opt=document.createElement('option'); opt.value=scopeKeyOf(n); opt.textContent=n.name; sel.appendChild(opt); });
     sel.onchange = ()=>{ dashFocusStack=[sel.value]; renderDashboard(); };
     selWrap.appendChild(label); selWrap.appendChild(sel);
-    dashFocusStack = [list[0].id];
+    dashFocusStack = [scopeKeyOf(list[0])];
   }
   renderDashboard();
 }
@@ -605,7 +649,14 @@ function enterApp(){
   }
   if(currentUser.role === 'supervisor' || currentUser.role === 'asm' || currentUser.role === 'rsm'){
     document.getElementById('dashboardScreen').classList.remove('hidden');
-    dashRootScope = currentUser.username;
+    const anchor = kpiAnchorFor(currentUser.role, currentUser.displayName);
+    if(anchor){
+      dashUseKpi = true;
+      dashRootScope = anchor;
+    } else {
+      dashUseKpi = false;
+      dashRootScope = currentUser.username;
+    }
     setDashView('dashboard');
     buildRoleTabs();
     return;
@@ -620,6 +671,7 @@ document.getElementById('dashLogoutBtn').onclick = document.getElementById('logo
 document.getElementById('adminViewDashboardBtn').onclick = ()=>{
   document.getElementById('adminScreen').classList.add('hidden');
   document.getElementById('dashboardScreen').classList.remove('hidden');
+  dashUseKpi = true;
   dashRootScope = 'root';
   setDashView('dashboard');
   buildRoleTabs();
@@ -642,7 +694,7 @@ function renderDashCrumbs(){
   dashFocusStack.forEach((id,i)=>{
     if(i>0){ const sep=document.createElement('span'); sep.style.margin='0 6px'; sep.style.color='#C3CBD5'; sep.textContent='◀'; el.appendChild(sep); }
     const c = document.createElement('span');
-    c.textContent = NODE_INFO[id].name;
+    c.textContent = scopeNode(id).name;
     if(i<dashFocusStack.length-1){ c.style.cursor='pointer'; c.style.color='var(--teal-dark)'; c.style.fontWeight='700';
       c.onclick=()=>{ dashFocusStack = dashFocusStack.slice(0,i+1); renderDashboard(); }; }
     else { c.style.fontWeight='800'; }
@@ -651,8 +703,10 @@ function renderDashCrumbs(){
 }
 function renderDashboard(){
   const id = dashFocusStack[dashFocusStack.length-1];
-  const node = orgNode(id);
-  document.getElementById('dTitle').innerHTML = `${node.name} <span class="badge-period">${orgRoleLabel(node.type)}</span>`;
+  const node = scopeNode(id);
+  const typeForLabel = dashUseKpi ? node.role : node.type;
+  const rsmExtra = (dashUseKpi && node.role==='Region' && node.rsm) ? ` <span style="font-size:15px; color:var(--muted); font-weight:700;">— ${node.rsm}</span>` : '';
+  document.getElementById('dTitle').innerHTML = `${node.name}${rsmExtra} <span class="badge-period">${scopeRoleLabel(typeForLabel)}</span>` + (dashUseKpi?'':' <span class="badge-period" style="background:#FBE7E8; color:var(--red); border-color:#F5C7C9;">⚠ بيانات غير مكتملة</span>');
   renderDashCrumbs();
   renderDashKPI(node);
   renderDashGauge(node);
@@ -684,15 +738,19 @@ function renderDashGauge(n){
   tag.style.color = statusColor(s);
 }
 function renderDashBarAndTable(id, node){
-  const kids = orgChildrenOf(id).map(k=>({...k, ...aggOf(k.id)}));
+  const kids = scopeChildren(id);
   document.getElementById('dBarTitle').textContent = kids.length ? 'الهدف مقابل المحقق لكل عنصر' : 'الهدف مقابل المحقق';
   document.getElementById('dBarHint').textContent = kids.length ? `مقارنة ${kids.length} عنصر داخل ${node.name}` : 'مندوب فردي — لا يوجد عناصر فرعية';
   const labels = kids.length ? kids.map(k=>k.name.length>16?k.name.slice(0,16)+'…':k.name) : [node.name];
   const dataNodes = kids.length ? kids : [node];
+  const clickKeys = kids.length ? kids.map(k=>{
+    const kType = dashUseKpi ? k.role : k.type;
+    return kType !== 'SR' ? scopeKeyOf(k) : null;
+  }) : [];
   drawBarChart('dBarChart', labels, [
     {label:'الهدف', data:dataNodes.map(k=>k.totals.tgt), color:'#DCE3EC'},
     {label:'المحقق', data:dataNodes.map(k=>k.totals.cm), color:'#00A8C2'},
-  ]);
+  ], null, {clickKeys, onGroupClick:(key)=>{ dashFocusStack.push(key); renderDashboard(); }});
 
   const wrap = document.getElementById('dTableWrap');
   document.getElementById('dTableTitle').textContent = `تفاصيل: ${node.name}`;
@@ -700,14 +758,17 @@ function renderDashBarAndTable(id, node){
   let html = `<table><thead><tr><th>الاسم</th><th>النوع</th><th>الهدف</th><th>المحقق</th><th>نسبة التحقيق</th><th>المتبقي</th><th>الحالة</th><th></th></tr></thead><tbody>`;
   kids.forEach(k=>{
     const rem = Math.max(k.totals.tgt-k.totals.cm,0), pv = pctOf(k), s = statusOf(k);
-    const canDrill = k.type !== 'SR';
-    html += `<tr class="${canDrill?'clickable':''}" data-id="${k.id}" style="${canDrill?'cursor:pointer;':''}">
+    const kType = dashUseKpi ? k.role : k.type;
+    const canDrill = kType !== 'SR';
+    const kKey = scopeKeyOf(k);
+    const dangerColor = s==='behind' ? 'var(--red)' : (s==='ahead' ? 'var(--green)' : '#16202E');
+    html += `<tr class="${canDrill?'clickable':''}" data-id="${kKey}" style="${canDrill?'cursor:pointer;':''}">
       <td><div class="name-cell"><div class="avatar">${initials(k.name)}</div>${k.name}</div></td>
-      <td>${orgRoleLabel(k.type)}</td>
-      <td class="num">${fmt(k.totals.tgt)}</td>
-      <td class="num">${fmt(k.totals.cm)}</td>
-      <td class="progress-cell"><span class="pct-txt">${k.totals.tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
-      <td class="num">${fmt(rem)}</td>
+      <td>${scopeRoleLabel(kType)}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(k.totals.tgt)}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(k.totals.cm)}</td>
+      <td class="progress-cell"><span class="pct-txt" style="font-weight:800; color:${dangerColor};">${k.totals.tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(rem)}</td>
       <td><span class="status ${s}">${statusLabel(s)}</span></td>
       <td>${canDrill?'<button class="arrow-btn" style="background:#EEF6F5; color:var(--teal-dark); border:none; font-size:11.5px; font-weight:800; padding:6px 12px; border-radius:8px; cursor:pointer;">التفاصيل ◀</button>':''}</td>
     </tr>`;
@@ -731,9 +792,13 @@ function renderDashProduct(node){
     const tgt = node.byProduct[p].tgt, cm = node.byProduct[p].cm;
     const rem = Math.max(tgt-cm,0), pv = tgt>0?cm/tgt*100:0;
     const s = tgt<=0?'nodata':((cm/tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100>=100?'ahead':(cm/tgt)/(DAY_ELAPSED/DAYS_IN_MONTH)*100>=85?'ontrack':'behind');
-    html += `<tr><td style="font-weight:800;">${p}</td><td class="num">${fmt(tgt)}</td><td class="num">${fmt(cm)}</td>
-      <td class="progress-cell"><span class="pct-txt">${tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
-      <td class="num">${fmt(rem)}</td><td><span class="status ${s}">${statusLabel(s)}</span></td></tr>`;
+    const dangerColor = s==='behind' ? 'var(--red)' : (s==='ahead' ? 'var(--green)' : '#16202E');
+    html += `<tr><td style="font-weight:800;">${p}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(tgt)}</td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(cm)}</td>
+      <td class="progress-cell"><span class="pct-txt" style="font-weight:800; color:${dangerColor};">${tgt>0?pv.toFixed(1)+'%':'—'}</span><div class="prog-track"><div class="prog-fill" style="width:${Math.min(pv,100)}%; background:${statusColor(s)}"></div></div></td>
+      <td style="font-weight:900; color:${dangerColor};">${fmt(rem)}</td>
+      <td><span class="status ${s}">${statusLabel(s)}</span></td></tr>`;
   });
   html += `</tbody></table>`;
   document.getElementById('dProductTableWrap').innerHTML = html;
@@ -742,22 +807,23 @@ function renderDashProduct(node){
 /* ===================== الهيكل التنظيمي (لوحة المتابعة) ===================== */
 function renderOrgChartD(){
   const rootId = dashFocusStack[0];
-  const rootNode = orgNode(rootId);
+  const rootNode = scopeNode(rootId);
   document.getElementById('dOrgHint').textContent = `يبدأ من: ${rootNode.name}`;
   const tree = document.getElementById('dOrgTree');
   tree.innerHTML = '';
   tree.appendChild(buildTreeNodeD(rootId, true));
 }
 function buildTreeNodeD(id, isFirst){
-  const node = orgNode(id);
-  const kids = orgChildrenOf(id);
+  const node = scopeNode(id);
+  const kids = scopeChildren(id);
   const s = statusOf(node);
+  const typeForLabel = dashUseKpi ? node.role : node.type;
   const wrap = document.createElement('div'); wrap.className='tree-node';
   const row = document.createElement('div'); row.className='tree-row';
   const hasChildren = kids.length>0;
   row.innerHTML = `
     <span class="twisty">${hasChildren?'►':'•'}</span>
-    <span class="role-tag">${orgRoleLabel(node.type)}</span>
+    <span class="role-tag">${scopeRoleLabel(typeForLabel)}</span>
     <span class="nm2">${node.name}</span>
     <span class="pctmini" style="color:${statusColor(s)}">${node.totals.tgt>0?pctOf(node).toFixed(0)+'%':'—'}</span>
     <button class="goto-btn">فتح اللوحة</button>
@@ -771,7 +837,7 @@ function buildTreeNodeD(id, isFirst){
       e.stopPropagation();
       const open = box.classList.toggle('open');
       row.querySelector('.twisty').textContent = open?'▼':'►';
-      if(open && !loaded){ kids.forEach(k=> box.appendChild(buildTreeNodeD(k.id,false))); loaded=true; }
+      if(open && !loaded){ kids.forEach(k=> box.appendChild(buildTreeNodeD(scopeKeyOf(k),false))); loaded=true; }
     };
   }
   row.querySelector('.goto-btn').onclick = (e)=>{
@@ -827,57 +893,110 @@ document.querySelectorAll('.nav-item').forEach(item=>{
 
 let compareChart=null, productChart=null;
 
-/* ===================== شارت أعمدة بديل بدون أي مكتبة خارجية (SVG صرف) ===================== */
+/* ===================== شارت أعمدة احترافي (SVG صرف بدون أي مكتبة خارجية) ===================== */
 function fmtM(v){ return (v/1000000).toFixed(1)+'م'; }
+let __chartGradId = 0;
 function drawBarChart(containerId, labels, datasets, height, opts){
   opts = opts || {};
-  const showValues = opts.showValues && labels.length <= 12;
-  height = height || 230;
+  const showValues = labels.length <= 12;
+  height = height || 240;
   const el = document.getElementById(containerId);
   const width = 900;
-  const pad = {top: showValues?48:34, right:14, bottom:56, left:56};
+  const pad = {top: 46, right:14, bottom:58, left:60};
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
   const maxVal = Math.max(1, ...datasets.flatMap(d=>d.data));
   const n = Math.max(labels.length,1);
   const groupW = plotW / n;
-  const gap = Math.max(3, groupW*0.08);
+  const gap = Math.max(3, groupW*0.1);
   const barW = Math.max(2,(groupW - gap*(datasets.length+1)) / datasets.length);
-  const valFont = Math.max(8, Math.min(11, barW/3.4));
+  const valFont = Math.max(8, Math.min(11.5, barW/3.2));
+  const gid = 'barGrad' + (__chartGradId++);
 
   let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="overflow:visible;">`;
+  svg += `<defs>
+    <linearGradient id="${gid}-achieved" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#027E8F"/>
+      <stop offset="100%" stop-color="#12C2B5"/>
+    </linearGradient>
+    <linearGradient id="${gid}-target" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#D6D9DD"/>
+      <stop offset="100%" stop-color="#EEF0F2"/>
+    </linearGradient>
+  </defs>`;
+
+  // خلفية بيضاء كاملة للرسم
+  svg += `<rect x="0" y="0" width="${width}" height="${height}" fill="transparent"/>`;
+
   const gridN = 4;
   for(let i=0;i<=gridN;i++){
     const y = pad.top + plotH - (plotH*i/gridN);
     const val = maxVal*i/gridN;
-    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width-pad.right}" y2="${y.toFixed(1)}" stroke="#EEF1F5" stroke-width="1"/>`;
-    svg += `<text x="${pad.left-8}" y="${(y+4).toFixed(1)}" font-size="11" fill="#71808F" text-anchor="end" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
+    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width-pad.right}" y2="${y.toFixed(1)}" stroke="#EEF2F6" stroke-width="1"/>`;
+    svg += `<text x="${pad.left-10}" y="${(y+4).toFixed(1)}" font-size="11.5" fill="#8894A3" font-weight="600" text-anchor="end" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
   }
+  // خط القاعدة أوضح
+  svg += `<line x1="${pad.left}" y1="${(pad.top+plotH).toFixed(1)}" x2="${width-pad.right}" y2="${(pad.top+plotH).toFixed(1)}" stroke="#C7D2DC" stroke-width="1.5"/>`;
+
+  // مفتاح توضيحي (Legend) واضح فوق
   let legendX = pad.left;
   datasets.forEach(ds=>{
-    svg += `<rect x="${legendX}" y="6" width="10" height="10" rx="2" fill="${ds.color}"/>`;
-    svg += `<text x="${legendX+14}" y="15" font-size="11" font-weight="700" fill="#16202E" font-family="Tajawal,sans-serif">${ds.label}</text>`;
-    legendX += 14 + ds.label.length*7.2 + 22;
+    const isAchieved = ds.color !== '#DCE3EC';
+    const fillRef = isAchieved ? `url(#${gid}-achieved)` : ds.color;
+    svg += `<rect x="${legendX}" y="8" width="14" height="14" rx="4" fill="${fillRef}"/>`;
+    svg += `<text x="${legendX+19}" y="19" font-size="12.5" font-weight="800" fill="#16202E" font-family="Tajawal,sans-serif">${ds.label}</text>`;
+    legendX += 19 + ds.label.length*8 + 26;
   });
+
   labels.forEach((lbl,li)=>{
     const groupX = pad.left + li*groupW;
+    const clickable = opts.clickKeys && opts.clickKeys[li];
+    if(clickable){
+      svg += `<rect x="${groupX.toFixed(1)}" y="${pad.top.toFixed(1)}" width="${groupW.toFixed(1)}" height="${plotH.toFixed(1)}" fill="transparent" class="bar-hit" data-gi="${li}" style="cursor:pointer;"/>`;
+    }
     datasets.forEach((ds,di)=>{
       const val = ds.data[li]||0;
       const barH = maxVal>0 ? Math.max(0,(val/maxVal))*plotH : 0;
       const x = groupX + gap + di*(barW+gap);
       const y = pad.top + plotH - barH;
-      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="4" fill="${ds.color}"><title>${ds.label} — ${lbl}: ${fmt(val)}</title></rect>`;
-      if(showValues){
-        const vy = Math.max(pad.top-6, y-6);
-        svg += `<text x="${(x+barW/2).toFixed(1)}" y="${vy.toFixed(1)}" font-size="${valFont.toFixed(1)}" font-weight="700" fill="${ds.color==='#DCE3EC'?'#8894A3':'#027E8F'}" text-anchor="middle" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
+      const isAchieved = ds.color !== '#DCE3EC';
+      const fillRef = isAchieved ? `url(#${gid}-achieved)` : `url(#${gid}-target)`;
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="6" fill="${fillRef}" stroke="${isAchieved?'#02707E':'#B7BBC0'}" stroke-width="0.5"><title>${ds.label} — ${lbl}: ${fmt(val)} ج.م</title></rect>`;
+      if(showValues && barH>2){
+        const vy = Math.max(pad.top-8, y-7);
+        svg += `<text x="${(x+barW/2).toFixed(1)}" y="${vy.toFixed(1)}" font-size="${valFont.toFixed(1)}" font-weight="800" fill="${isAchieved?'#02707E':'#6B7075'}" text-anchor="middle" font-family="Tajawal,sans-serif">${fmtM(val)}</text>`;
       }
     });
     const labelX = groupX + groupW/2;
-    const shortLbl = lbl.length>15? lbl.slice(0,15)+'…': lbl;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(height-pad.bottom+20).toFixed(1)}" font-size="10.5" fill="#71808F" text-anchor="middle" font-family="Tajawal,sans-serif">${shortLbl}</text>`;
+    const maxCharsPerLine = Math.max(6, Math.floor(groupW/6.6));
+    let line1 = lbl, line2 = '';
+    if(lbl.length > maxCharsPerLine){
+      const words = lbl.split(' ');
+      line1 = ''; line2 = '';
+      words.forEach(w=>{
+        if((line1+' '+w).trim().length <= maxCharsPerLine && !line2){ line1 = (line1+' '+w).trim(); }
+        else { line2 = (line2+' '+w).trim(); }
+      });
+      if(line2.length > maxCharsPerLine){ line2 = line2.slice(0, maxCharsPerLine-1)+'…'; }
+    }
+    const labelY1 = height-pad.bottom + (line2?16:20);
+    svg += `<text x="${labelX.toFixed(1)}" y="${labelY1.toFixed(1)}" font-size="10.5" font-weight="600" fill="#5E6E7E" text-anchor="middle" font-family="Tajawal,sans-serif">${line1}</text>`;
+    if(line2){
+      svg += `<text x="${labelX.toFixed(1)}" y="${(labelY1+13).toFixed(1)}" font-size="10.5" font-weight="600" fill="#5E6E7E" text-anchor="middle" font-family="Tajawal,sans-serif">${line2}</text>`;
+    }
   });
   svg += `</svg>`;
   el.innerHTML = svg;
+  if(opts.clickKeys && opts.onGroupClick){
+    el.querySelectorAll('.bar-hit').forEach(hit=>{
+      const gi = +hit.dataset.gi;
+      const key = opts.clickKeys[gi];
+      if(!key) return;
+      hit.addEventListener('mouseenter', ()=>{ hit.setAttribute('fill','rgba(0,168,194,0.06)'); });
+      hit.addEventListener('mouseleave', ()=>{ hit.setAttribute('fill','transparent'); });
+      hit.addEventListener('click', ()=> opts.onGroupClick(key));
+    });
+  }
 }
 
 function teammatesOf(rep){
