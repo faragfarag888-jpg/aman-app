@@ -330,6 +330,7 @@ tr.me td{background:#F4FBFA;}
     <div class="dash-role-tabs" id="dRoleTabs"></div>
     <div class="dash-selector" id="dSelectorWrap"></div>
     <div id="dDateInfo" style="margin-top:auto; font-size:10.5px; color:#7488A0; line-height:1.9; border-top:1px solid #24374F; padding-top:14px;">—</div>
+    <button class="reset-btn" id="dashAdminAccountsBtn" style="display:none;">⚙ إدارة الحسابات</button>
     <button class="reset-btn" id="dashLogoutBtn">تسجيل الخروج</button>
   </aside>
 
@@ -664,8 +665,12 @@ function selectDashRoleTab(type){
 
 function enterApp(){
   if(currentUser.role === 'admin'){
-    document.getElementById('adminScreen').classList.remove('hidden');
-    renderAdminAccounts();
+    document.getElementById('dashboardScreen').classList.remove('hidden');
+    document.getElementById('dashAdminAccountsBtn').style.display = 'block';
+    dashUseKpi = true;
+    dashRootScope = 'root';
+    setDashView('dashboard');
+    buildRoleTabs();
     return;
   }
   if(currentUser.role === 'supervisor' || currentUser.role === 'asm' || currentUser.role === 'rsm'){
@@ -696,6 +701,11 @@ document.getElementById('adminViewDashboardBtn').onclick = ()=>{
   dashRootScope = 'root';
   setDashView('dashboard');
   buildRoleTabs();
+};
+document.getElementById('dashAdminAccountsBtn').onclick = ()=>{
+  document.getElementById('dashboardScreen').classList.add('hidden');
+  document.getElementById('adminScreen').classList.remove('hidden');
+  renderAdminAccounts();
 };
 document.querySelectorAll('.dview-pill').forEach(b=>{
   b.onclick = ()=> setDashView(b.dataset.dview);
