@@ -121,7 +121,7 @@ main{flex:1; padding:26px 30px; max-width:1300px;}
 .gauge-tag{font-size:12px; font-weight:800; padding:4px 12px; border-radius:20px; margin-top:4px;}
 .gauge-labels{display:flex; justify-content:space-between; width:220px; font-size:10.5px; color:var(--muted); font-weight:700; margin-top:2px;}
 
-table{width:100%; border-collapse:collapse;}
+table{width:100%; border-collapse:collapse;} html,body{overflow-x:hidden;} .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%;} .kpi{min-width:0} .kpi-row{min-width:0} main{min-width:0}
 thead th{text-align:right; font-size:10.5px; color:var(--muted); font-weight:800; letter-spacing:.3px; padding:11px 14px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:#F7FAFB; text-transform:uppercase;}
 tbody td{padding:13px 14px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle;}
 tbody tr:last-child td{border-bottom:none;}
@@ -1224,5 +1224,22 @@ function renderTeamPage(r){
     <div class="pos-modal-body" id="posModalBody"></div>
   </div>
 </div>
+<script>
+(function(){
+  function wrapTables(root){
+    (root||document).querySelectorAll('table').forEach(function(t){
+      if(t.parentElement && t.parentElement.classList.contains('table-scroll')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'table-scroll';
+      t.parentNode.insertBefore(wrap, t);
+      wrap.appendChild(t);
+    });
+  }
+  wrapTables();
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){ if(m.addedNodes && m.addedNodes.length) wrapTables(document); });
+  }).observe(document.body, {childList:true, subtree:true});
+})();
+</script>
 </body>
 </html>
