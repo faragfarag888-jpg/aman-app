@@ -190,6 +190,8 @@ tr.me td{background:#F4FBFA;}
 .dash-selector select{width:100%; font-family:inherit; font-size:12.5px; font-weight:700; color:#fff; background:#0C4750; border:1px solid #145962; border-radius:9px; padding:8px 10px; cursor:pointer;}
 /* POS drill-down modal */
 .pos-modal-backdrop{position:fixed; inset:0; background:rgba(7,20,25,.55); z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px;}
+.merch-summary-card{transition:transform .12s ease;}
+.merch-summary-card:hover{transform:translateY(-2px);}
 .pos-modal{background:#fff; border-radius:16px; width:100%; max-width:640px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3);}
 .pos-modal-head{padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;}
 .pos-modal-head h3{margin:0; font-size:16px; font-weight:900;}
@@ -625,6 +627,30 @@ async function renderRepMerchantsView(){
   paintRepMerchantsView();
 }
 
+function repMerchantsSummaryCardsHtml(fullList){
+  const active = fullList.filter(function(m){ return m.s===true; }).length;
+  const inactive = fullList.filter(function(m){ return m.s===false; }).length;
+  const met = fullList.filter(function(m){ return m.hasTarget && m.pct>=100; }).length;
+  const below = fullList.filter(function(m){ return m.hasTarget && m.pct<100; }).length;
+  function card(label, value, bg, fg, onclick){
+    return '<div class="merch-summary-card" onclick="'+onclick+'" style="cursor:pointer; flex:1; min-width:130px; background:'+bg+'; border:1.5px solid '+fg+'33; border-radius:12px; padding:14px 16px;">'
+      + '<div style="font-size:22px; font-weight:900; color:'+fg+';">'+ value.toLocaleString() +'</div>'
+      + '<div style="font-size:12px; font-weight:700; color:'+fg+'; opacity:.85; margin-top:2px;">'+ label +'</div>'
+      + '</div>';
+  }
+  return '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">'
+    + card('نشطة', active, '#E1F5EE', '#0B6E52', "setRepMerchFilterQuick('status','active')")
+    + card('غير نشطة', inactive, '#FCEBEB', '#C23A3A', "setRepMerchFilterQuick('status','inactive')")
+    + card('حققوا الهدف', met, '#EAF3FE', '#1D5EA8', "setRepMerchFilterQuick('perf','met')")
+    + card('لم يحققوا الهدف', below, '#FDF3E3', '#9A6A0E', "setRepMerchFilterQuick('perf','below')")
+    + '</div>';
+}
+function setRepMerchFilterQuick(kind, val){
+  if(kind==='status') repMerchantsStatusFilter = val;
+  if(kind==='perf') repMerchantsPerfFilter = val;
+  repMerchantsPage = 0;
+  paintRepMerchantsView();
+}
 function paintRepMerchantsView(){
   const container = document.getElementById('repMerchantsWrap');
   let list = repMerchantsListCache || [];
@@ -645,7 +671,8 @@ function paintRepMerchantsView(){
 
   function opt(val,label,cur){ return '<option value="'+val+'"'+(val===cur?' selected':'')+'>'+label+'</option>'; }
 
-  let html = ''
+  let html = repMerchantsSummaryCardsHtml(repMerchantsListCache || []);
+  html += ''
     + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
     + '<input type="text" id="repMerchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (repMerchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
     + '<select id="repMerchStatusFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
