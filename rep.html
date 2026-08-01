@@ -251,7 +251,7 @@ tr.me td{background:#F4FBFA;}
       <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
-    <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br>⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</div>
+    <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br><span id="remDaysWrap">⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</span></div>
     <div class="logout-btn" id="logoutBtn" style="text-align:center; font-size:11.5px; font-weight:800; color:#F4A6A9; background:rgba(229,72,77,.12); border:1px solid rgba(229,72,77,.3); border-radius:10px; padding:9px; cursor:pointer;">تسجيل الخروج</div>
   </aside>
 
@@ -648,16 +648,16 @@ function paintRepMerchantsView(){
   let html = ''
     + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
     + '<input type="text" id="repMerchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (repMerchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
-    + '<select id="repMerchStatusFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="repMerchStatusFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الحالات',repMerchantsStatusFilter) + opt('active','نشط فقط',repMerchantsStatusFilter) + opt('inactive','غير نشط فقط',repMerchantsStatusFilter)
     + '</select>'
-    + '<select id="repMerchPerfFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="repMerchPerfFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الأداء',repMerchantsPerfFilter) + opt('below','لم يحقق الهدف',repMerchantsPerfFilter) + opt('met','حقق الهدف',repMerchantsPerfFilter)
     + '</select>'
-    + '<select id="repMerchClassFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="repMerchClassFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الفئات',repMerchantsClassFilter) + opt('Platinum','بلاتينيوم',repMerchantsClassFilter) + opt('Gold','ذهبي',repMerchantsClassFilter) + opt('Silver','فضي',repMerchantsClassFilter) + opt('Bronze','برونزي',repMerchantsClassFilter) + opt('Tin','مبتدئ',repMerchantsClassFilter)
     + '</select>'
-    + '<select id="repMerchSortDir" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="repMerchSortDir" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('asc','الأسوأ أداءً أولًا',repMerchantsSortDir) + opt('desc','الأفضل أداءً أولًا',repMerchantsSortDir)
     + '</select>'
     + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي: '+ total +'</div>'
@@ -904,7 +904,12 @@ function enterApp(){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('dayLbl').textContent = DAY_ELAPSED;
   document.getElementById('daysLbl').textContent = DAYS_IN_MONTH;
-  document.getElementById('remDaysLbl').textContent = DAYS_LEFT;
+  const remWrap = document.getElementById('remDaysWrap');
+  if(remWrap){
+    remWrap.innerHTML = DAYS_LEFT > 0
+      ? ('⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">'+DAYS_LEFT+'</b> '+(DAYS_LEFT===1?'يوم':'أيام')+' على نهاية الشهر')
+      : '✅ <b style="color:#3FD6C8;">تم إغلاق الشهر</b> — البيانات نهائية';
+  }
   renderAll();
 }
 document.getElementById('dashLogoutBtn').onclick = document.getElementById('logoutBtn').onclick;

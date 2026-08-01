@@ -417,7 +417,11 @@ const AR_MONTHS = ['','يناير','فبراير','مارس','أبريل','ما�
 const REPORT_DATE_AR = `${DAY_ELAPSED} ${AR_MONTHS[KPI_DATA.meta.month]} ${KPI_DATA.meta.year}`;
 function paintDateInfo(){
   const el = document.getElementById('dDateInfo');
-  if(el) el.innerHTML = `بيانات حتى <b>${REPORT_DATE_AR}</b><br>يوم ${DAY_ELAPSED} من ${DAYS_IN_MONTH} من الشهر<br>⏳ متبقي <b style="color:#3FD6C8;">${DAYS_LEFT} أيام</b> على نهاية الشهر`;
+  if(!el) return;
+  const remainingLine = DAYS_LEFT > 0
+    ? `⏳ متبقي <b style="color:#3FD6C8;">${DAYS_LEFT} ${DAYS_LEFT===1?'يوم':'أيام'}</b> على نهاية الشهر`
+    : `✅ <b style="color:#3FD6C8;">تم إغلاق الشهر</b> — البيانات نهائية`;
+  el.innerHTML = `بيانات حتى <b>${REPORT_DATE_AR}</b><br>يوم ${DAY_ELAPSED} من ${DAYS_IN_MONTH} من الشهر<br>${remainingLine}`;
 }
 const NODES = KPI_DATA.nodes;
 const BY_KEY = {}; NODES.forEach(n=> BY_KEY[n.key]=n);
@@ -799,16 +803,16 @@ function paintMerchantsView(){
   let html = ''
     + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
     + '<input type="text" id="merchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (merchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
-    + '<select id="merchStatusFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="merchStatusFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الحالات',merchantsStatusFilter) + opt('active','نشط فقط',merchantsStatusFilter) + opt('inactive','غير نشط فقط',merchantsStatusFilter)
     + '</select>'
-    + '<select id="merchPerfFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="merchPerfFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الأداء',merchantsPerfFilter) + opt('below','لم يحقق الهدف',merchantsPerfFilter) + opt('met','حقق الهدف',merchantsPerfFilter)
     + '</select>'
-    + '<select id="merchClassFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="merchClassFilter" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('all','كل الفئات',merchantsClassFilter) + opt('Platinum','بلاتينيوم',merchantsClassFilter) + opt('Gold','ذهبي',merchantsClassFilter) + opt('Silver','فضي',merchantsClassFilter) + opt('Bronze','برونزي',merchantsClassFilter) + opt('Tin','مبتدئ',merchantsClassFilter)
     + '</select>'
-    + '<select id="merchSortDir" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+    + '<select id="merchSortDir" style="padding:8px 14px; border:1.5px solid var(--teal); border-radius:8px; font-size:12.5px; font-weight:800; color:var(--teal-dark); background:#EAF7F5; cursor:pointer;">'
       + opt('asc','الأسوأ أداءً أولًا',merchantsSortDir) + opt('desc','الأفضل أداءً أولًا',merchantsSortDir)
     + '</select>'
     + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي: '+ total +'</div>'
