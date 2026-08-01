@@ -664,10 +664,43 @@ function getPosIndex(){
   POS_RECORDS.forEach(function(r){ POS_INDEX[r.k+'::'+r.id] = r; });
   return POS_INDEX;
 }
+const MERCHANT_CLASS_BANDS = [
+  {min:50000, key:'Platinum', ar:'بلاتينيوم', bg:'#E5E7EB', fg:'#374151'},
+  {min:15000, key:'Gold', ar:'ذهبي', bg:'#FEF3C7', fg:'#92400E'},
+  {min:5000, key:'Silver', ar:'فضي', bg:'#F3F4F6', fg:'#4B5563'},
+  {min:1000, key:'Bronze', ar:'برونزي', bg:'#FDE7D9', fg:'#9A3412'},
+  {min:0, key:'Tin', ar:'مبتدئ', bg:'#F1F4F8', fg:'#6B7280'}
+];
+function classOf(totalC){
+  for(let i=0;i<MERCHANT_CLASS_BANDS.length;i++){ if(totalC >= MERCHANT_CLASS_BANDS[i].min) return MERCHANT_CLASS_BANDS[i]; }
+  return MERCHANT_CLASS_BANDS[MERCHANT_CLASS_BANDS.length-1];
+}
+const MERCHANT_GRADE_BANDS = [
+  {min:100, key:'A+', ar:'امتياز+', fg:'#085041', bg:'#E1F5EE'},
+  {min:90, key:'A', ar:'امتياز', fg:'#085041', bg:'#E1F5EE'},
+  {min:85, key:'A-', ar:'امتياز-', fg:'#0F6E56', bg:'#E1F5EE'},
+  {min:80, key:'B+', ar:'جيد جداً+', fg:'#854F0B', bg:'#FAEEDA'},
+  {min:75, key:'B', ar:'جيد جداً', fg:'#854F0B', bg:'#FAEEDA'},
+  {min:70, key:'B-', ar:'جيد جداً-', fg:'#854F0B', bg:'#FAEEDA'},
+  {min:65, key:'C+', ar:'جيد+', fg:'#712B13', bg:'#FAECE7'},
+  {min:60, key:'C', ar:'جيد', fg:'#712B13', bg:'#FAECE7'},
+  {min:0, key:'F', ar:'ضعيف', fg:'#791F1F', bg:'#FCEBEB'}
+];
+function gradeOf(pct){
+  for(let i=0;i<MERCHANT_GRADE_BANDS.length;i++){ if(pct >= MERCHANT_GRADE_BANDS[i].min) return MERCHANT_GRADE_BANDS[i]; }
+  return MERCHANT_GRADE_BANDS[MERCHANT_GRADE_BANDS.length-1];
+}
+function classBadgeHtml(cls){ return '<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; background:'+cls.bg+'; color:'+cls.fg+';">'+cls.ar+'</span>'; }
+function gradeBadgeHtml(g){ return '<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; background:'+g.bg+'; color:'+g.fg+';">'+g.key+'</span>'; }
+
 let merchantsPage = 0;
 const MERCHANTS_PAGE_SIZE = 50;
 let merchantsSearchTerm = '';
 let merchantsListCache = null;
+let merchantsStatusFilter = 'all';
+let merchantsPerfFilter = 'all';
+let merchantsClassFilter = 'all';
+let merchantsSortDir = 'asc';
 
 function buildMerchantsList(){
   const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
@@ -686,11 +719,12 @@ function buildMerchantsList(){
       let totalT = 0, totalC = 0;
       for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
       const rec = idx[kpiKey+'::'+posId];
+      const pct = totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
       list.push({
         pos: posId, kpiKey: kpiKey, code: code,
         n: rec ? rec.n : posId, a: rec ? rec.a : '', p: rec ? rec.p : '', s: rec ? rec.s : null,
         t: t, c: c, totalT: totalT, totalC: totalC,
-        pct: totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0)
+        pct: pct, cls: classOf(totalC), grade: gradeOf(pct)
       });
     });
   });
@@ -718,19 +752,38 @@ function paintMerchantsView(){
     const q = merchantsSearchTerm.trim();
     list = list.filter(function(m){ return (m.n && m.n.indexOf(q)>-1) || (m.pos && m.pos.indexOf(q)>-1); });
   }
-  list = list.slice().sort(function(a,b){ return a.pct - b.pct; });
+  if(merchantsStatusFilter==='active') list = list.filter(function(m){ return m.s===true; });
+  else if(merchantsStatusFilter==='inactive') list = list.filter(function(m){ return m.s===false; });
+  if(merchantsPerfFilter==='below') list = list.filter(function(m){ return m.pct < 100; });
+  else if(merchantsPerfFilter==='met') list = list.filter(function(m){ return m.pct >= 100; });
+  if(merchantsClassFilter!=='all') list = list.filter(function(m){ return m.cls.key===merchantsClassFilter; });
+  list = list.slice().sort(function(a,b){ return merchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct); });
   const total = list.length;
   const start = merchantsPage * MERCHANTS_PAGE_SIZE;
   const pageItems = list.slice(start, start+MERCHANTS_PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(total/MERCHANTS_PAGE_SIZE));
 
+  function opt(val,label,cur){ return '<option value="'+val+'"'+(val===cur?' selected':'')+'>'+label+'</option>'; }
+
   let html = ''
-    + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">'
-    + '<input type="text" id="merchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (merchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
-    + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي التجار: '+ total +'</div>'
+    + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
+    + '<input type="text" id="merchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (merchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
+    + '<select id="merchStatusFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+      + opt('all','كل الحالات',merchantsStatusFilter) + opt('active','نشط فقط',merchantsStatusFilter) + opt('inactive','غير نشط فقط',merchantsStatusFilter)
+    + '</select>'
+    + '<select id="merchPerfFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+      + opt('all','كل الأداء',merchantsPerfFilter) + opt('below','لم يحقق الهدف',merchantsPerfFilter) + opt('met','حقق الهدف',merchantsPerfFilter)
+    + '</select>'
+    + '<select id="merchClassFilter" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+      + opt('all','كل الفئات',merchantsClassFilter) + opt('Platinum','بلاتينيوم',merchantsClassFilter) + opt('Gold','ذهبي',merchantsClassFilter) + opt('Silver','فضي',merchantsClassFilter) + opt('Bronze','برونزي',merchantsClassFilter) + opt('Tin','مبتدئ',merchantsClassFilter)
+    + '</select>'
+    + '<select id="merchSortDir" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:12.5px;">'
+      + opt('asc','الأسوأ أداءً أولًا',merchantsSortDir) + opt('desc','الأفضل أداءً أولًا',merchantsSortDir)
+    + '</select>'
+    + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي: '+ total +'</div>'
     + '</div>'
     + '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
-    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
     + '</tr></thead><tbody>';
 
   pageItems.forEach(function(m,i){
@@ -740,11 +793,13 @@ function paintMerchantsView(){
     html += '<tr class="clickable" onclick="toggleMerchantDetail('+idxKey+')">'
       + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
+      + '<td>'+ classBadgeHtml(m.cls) +'</td>'
+      + '<td>'+ gradeBadgeHtml(m.grade) +'</td>'
       + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
       + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
       + '<td style="font-weight:800;">'+ m.pct.toFixed(0) +'%</td>'
       + '<td>▾</td></tr>'
-      + '<tr id="merch-detail-'+idxKey+'" style="display:none;"><td colspan="7" style="padding:10px 16px; background:#F7FAFB;">'+ renderMerchantProductBreak(m) +'</td></tr>';
+      + '<tr id="merch-detail-'+idxKey+'" style="display:none;"><td colspan="9" style="padding:10px 16px; background:#F7FAFB;">'+ renderMerchantProductBreak(m) +'</td></tr>';
   });
 
   html += '</tbody></table></div>'
@@ -757,8 +812,15 @@ function paintMerchantsView(){
   container.innerHTML = html;
   const inp = document.getElementById('merchSearchInput');
   if(inp) inp.addEventListener('input', function(e){ merchantsSearchTerm = e.target.value; merchantsPage = 0; paintMerchantsView(); });
+  const selStatus = document.getElementById('merchStatusFilter');
+  if(selStatus) selStatus.addEventListener('change', function(e){ merchantsStatusFilter = e.target.value; merchantsPage = 0; paintMerchantsView(); });
+  const selPerf = document.getElementById('merchPerfFilter');
+  if(selPerf) selPerf.addEventListener('change', function(e){ merchantsPerfFilter = e.target.value; merchantsPage = 0; paintMerchantsView(); });
+  const selClass = document.getElementById('merchClassFilter');
+  if(selClass) selClass.addEventListener('change', function(e){ merchantsClassFilter = e.target.value; merchantsPage = 0; paintMerchantsView(); });
+  const selSort = document.getElementById('merchSortDir');
+  if(selSort) selSort.addEventListener('change', function(e){ merchantsSortDir = e.target.value; merchantsPage = 0; paintMerchantsView(); });
 }
-
 function renderMerchantProductBreak(m){
   const products = merchantData.meta.products;
   let rows = '';
