@@ -348,6 +348,7 @@ tr.me td{background:#F4FBFA;}
     <div class="dash-view-switch">
       <div class="dview-pill" data-dview="orgchart">الهيكل التنظيمي</div>
       <div class="dview-pill active" data-dview="dashboard">لوحة المتابعة</div>
+      <div class="dview-pill" data-dview="merchants">أداء التجار</div>
     </div>
     <div class="dash-role-tabs" id="dRoleTabs"></div>
     <div class="dash-selector" id="dSelectorWrap"></div>
@@ -396,6 +397,7 @@ tr.me td{background:#F4FBFA;}
       </div>
     </div>
 
+    <div id="dView-merchants" style="display:none;"></div>
     <div id="dView-orgchart" style="display:none;">
       <div class="card">
         <h3>اضغط على أي اسم لفتح لوحته</h3>
@@ -642,6 +644,147 @@ function openPosModal(title, records){
   document.getElementById('posModalBackdrop').classList.remove('hidden');
 }
 function closePosModal(){ document.getElementById('posModalBackdrop').classList.add('hidden'); }
+
+/* ===================== أداء التجار ===================== */
+const MERCHANT_JSON_URL = 'merchant_targets.json';
+let merchantData = null;
+let merchantDataPromise = null;
+function ensureMerchantData(){
+  if(merchantData) return Promise.resolve(merchantData);
+  if(merchantDataPromise) return merchantDataPromise;
+  merchantDataPromise = fetch(MERCHANT_JSON_URL).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); }).then(function(d){ merchantData = d; return d; }).catch(function(e){ merchantDataPromise = null; throw e; });
+  return merchantDataPromise;
+}
+const KPI_KEY_TO_CODE = {};
+const CODE_TO_KPIKEY = {};
+SR_STRUCTURE.forEach(function(s){ if(s.kpiKey){ KPI_KEY_TO_CODE[s.kpiKey] = s.code; CODE_TO_KPIKEY[s.code] = s.kpiKey; } });
+let POS_INDEX = null;
+function getPosIndex(){
+  if(POS_INDEX) return POS_INDEX;
+  POS_INDEX = {};
+  POS_RECORDS.forEach(function(r){ POS_INDEX[r.k+'::'+r.id] = r; });
+  return POS_INDEX;
+}
+let merchantsPage = 0;
+const MERCHANTS_PAGE_SIZE = 50;
+let merchantsSearchTerm = '';
+let merchantsListCache = null;
+
+function buildMerchantsList(){
+  const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
+  const srKeys = collectSRKeys(scopeKey);
+  const idx = getPosIndex();
+  const list = [];
+  srKeys.forEach(function(key){
+    const code = dashUseKpi ? KPI_KEY_TO_CODE[key] : key;
+    const kpiKey = dashUseKpi ? key : CODE_TO_KPIKEY[key];
+    if(!code || !kpiKey) return;
+    const repData = merchantData.reps[code];
+    if(!repData) return;
+    Object.keys(repData).forEach(function(posId){
+      const arr = repData[posId];
+      const t = arr[0], c = arr[1];
+      let totalT = 0, totalC = 0;
+      for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
+      const rec = idx[kpiKey+'::'+posId];
+      list.push({
+        pos: posId, kpiKey: kpiKey, code: code,
+        n: rec ? rec.n : posId, a: rec ? rec.a : '', p: rec ? rec.p : '', s: rec ? rec.s : null,
+        t: t, c: c, totalT: totalT, totalC: totalC,
+        pct: totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0)
+      });
+    });
+  });
+  return list;
+}
+
+async function renderMerchantsView(){
+  const container = document.getElementById('dView-merchants');
+  container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">جارٍ تحميل بيانات التجار...</div>';
+  try{
+    await ensureMerchantData();
+  } catch(e){
+    container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">تعذر تحميل بيانات التجار. تأكد من رفع ملف merchant_targets.json بجوار ملفات التطبيق على نفس المسار.</div>';
+    return;
+  }
+  merchantsListCache = buildMerchantsList();
+  merchantsPage = 0;
+  paintMerchantsView();
+}
+
+function paintMerchantsView(){
+  const container = document.getElementById('dView-merchants');
+  let list = merchantsListCache || [];
+  if(merchantsSearchTerm){
+    const q = merchantsSearchTerm.trim();
+    list = list.filter(function(m){ return (m.n && m.n.indexOf(q)>-1) || (m.pos && m.pos.indexOf(q)>-1); });
+  }
+  list = list.slice().sort(function(a,b){ return a.pct - b.pct; });
+  const total = list.length;
+  const start = merchantsPage * MERCHANTS_PAGE_SIZE;
+  const pageItems = list.slice(start, start+MERCHANTS_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total/MERCHANTS_PAGE_SIZE));
+
+  let html = ''
+    + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">'
+    + '<input type="text" id="merchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (merchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
+    + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي التجار: '+ total +'</div>'
+    + '</div>'
+    + '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
+    + '</tr></thead><tbody>';
+
+  pageItems.forEach(function(m,i){
+    const statusLbl = m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-');
+    const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
+    const idxKey = start+i;
+    html += '<tr class="clickable" onclick="toggleMerchantDetail('+idxKey+')">'
+      + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
+      + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
+      + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
+      + '<td style="font-weight:800;">'+ m.pct.toFixed(0) +'%</td>'
+      + '<td>▾</td></tr>'
+      + '<tr id="merch-detail-'+idxKey+'" style="display:none;"><td colspan="7" style="padding:10px 16px; background:#F7FAFB;">'+ renderMerchantProductBreak(m) +'</td></tr>';
+  });
+
+  html += '</tbody></table></div>'
+    + '<div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-top:14px;">'
+    + '<button class="btn-outline" onclick="changeMerchantsPage(-1)" '+(merchantsPage<=0?'disabled':'')+'>السابق</button>'
+    + '<span style="font-size:12.5px; color:var(--muted);">صفحة '+(merchantsPage+1)+' من '+totalPages+'</span>'
+    + '<button class="btn-outline" onclick="changeMerchantsPage(1)" '+(merchantsPage>=totalPages-1?'disabled':'')+'>التالي</button>'
+    + '</div>';
+
+  container.innerHTML = html;
+  const inp = document.getElementById('merchSearchInput');
+  if(inp) inp.addEventListener('input', function(e){ merchantsSearchTerm = e.target.value; merchantsPage = 0; paintMerchantsView(); });
+}
+
+function renderMerchantProductBreak(m){
+  const products = merchantData.meta.products;
+  let rows = '';
+  for(let i=0;i<products.length;i++){
+    const t = Math.round(m.t[i]); const c = Math.round(m.c[i]);
+    const pct = t>0 ? Math.round(c/t*100) : (c>0 ? 999 : 0);
+    rows += '<div style="display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid var(--border); font-size:11.5px;">'
+      + '<span style="flex:1;">'+ products[i] +'</span>'
+      + '<span style="flex:1; text-align:center;">هدف: '+ t.toLocaleString() +'</span>'
+      + '<span style="flex:1; text-align:center;">محقق: '+ c.toLocaleString() +'</span>'
+      + '<span style="width:50px; text-align:left; font-weight:800;">'+ pct +'%</span>'
+      + '</div>';
+  }
+  return '<div>'+ rows +'<div style="margin-top:8px; font-size:11px; color:var(--muted);">📍 '+ (m.a||'') +' &nbsp;|&nbsp; ☎ '+ (m.p||'') +'</div></div>';
+}
+
+function toggleMerchantDetail(idx){
+  const row = document.getElementById('merch-detail-'+idx);
+  if(row) row.style.display = (row.style.display==='none') ? 'table-row' : 'none';
+}
+function changeMerchantsPage(delta){
+  merchantsPage += delta;
+  paintMerchantsView();
+}
+
 function showInactivePos(key, name){
   const srKeys = new Set(collectSRKeys(key));
   const records = POS_RECORDS.filter(r=> srKeys.has(r.k) && !r.s);
@@ -767,11 +910,13 @@ document.querySelectorAll('.dview-pill').forEach(b=>{
 });
 function setDashView(view){
   document.querySelectorAll('.dview-pill').forEach(b=> b.classList.toggle('active', b.dataset.dview===view));
-  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : 'الهيكل التنظيمي';
+  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : (view==='merchants' ? 'أداء التجار' : 'الهيكل التنظيمي');
   document.getElementById('dView-dashboard').style.display = view==='dashboard' ? 'block' : 'none';
   document.getElementById('dView-orgchart').style.display = view==='orgchart' ? 'block' : 'none';
+  document.getElementById('dView-merchants').style.display = view==='merchants' ? 'block' : 'none';
   paintDateInfo();
   if(view==='orgchart') renderOrgChartD();
+  if(view==='merchants') renderMerchantsView();
 }
 
 /* ===================== لوحة المتابعة (مشرف/ASM/RSM/أدمن) ===================== */

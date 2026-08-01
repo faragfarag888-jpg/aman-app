@@ -248,6 +248,7 @@ tr.me td{background:#F4FBFA;}
     <div class="nav-list" id="navList">
       <div class="nav-item active" data-page="overview"><span class="ico">◆</span>نظرة عامة</div>
       <div class="nav-item" data-page="team"><span class="ico">☰</span>ترتيب الفريق</div>
+      <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
     <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br>⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</div>
@@ -289,6 +290,12 @@ tr.me td{background:#F4FBFA;}
         <div style="font-size:12.5px; font-weight:800; color:var(--muted); margin-bottom:6px;">بالأرقام:</div>
         <div id="productTableWrap"></div>
       </div>
+    </div>
+
+    <!-- أداء التجار -->
+    <div class="page" id="page-merchants">
+      <div class="topbar"><h2 class="page-title">أداء التجار</h2></div>
+      <div id="repMerchantsWrap"></div>
     </div>
 
     <!-- ترتيب الفريق -->
@@ -493,6 +500,140 @@ function repNodeForCode(code){
   const s = SR_BY_CODE[code];
   if(!s) return null;
   return s.kpiKey ? BY_KEY[s.kpiKey] : null;
+}
+
+/* ===================== أداء التجار (تطبيق المندوب) ===================== */
+const MERCHANT_JSON_URL = 'merchant_targets.json';
+let merchantData = null;
+let merchantDataPromise = null;
+function ensureMerchantData(){
+  if(merchantData) return Promise.resolve(merchantData);
+  if(merchantDataPromise) return merchantDataPromise;
+  merchantDataPromise = fetch(MERCHANT_JSON_URL).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); }).then(function(d){ merchantData = d; return d; }).catch(function(e){ merchantDataPromise = null; throw e; });
+  return merchantDataPromise;
+}
+let POS_INDEX = null;
+function getPosIndex(){
+  if(POS_INDEX) return POS_INDEX;
+  POS_INDEX = {};
+  POS_RECORDS.forEach(function(r){ POS_INDEX[r.k+'::'+r.id] = r; });
+  return POS_INDEX;
+}
+let repMerchantsPage = 0;
+const REP_MERCHANTS_PAGE_SIZE = 50;
+let repMerchantsSearchTerm = '';
+let repMerchantsListCache = null;
+
+function buildRepMerchantsList(){
+  const s = SR_BY_CODE[currentUser.username];
+  const code = currentUser.username;
+  const kpiKey = s ? s.kpiKey : null;
+  const repData = merchantData.reps[code];
+  const idx = getPosIndex();
+  const list = [];
+  if(repData && kpiKey){
+    Object.keys(repData).forEach(function(posId){
+      const arr = repData[posId];
+      const t = arr[0], c = arr[1];
+      let totalT = 0, totalC = 0;
+      for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
+      const rec = idx[kpiKey+'::'+posId];
+      list.push({
+        pos: posId,
+        n: rec ? rec.n : posId, a: rec ? rec.a : '', p: rec ? rec.p : '', s: rec ? rec.s : null,
+        t: t, c: c, totalT: totalT, totalC: totalC,
+        pct: totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0)
+      });
+    });
+  }
+  return list;
+}
+
+async function renderRepMerchantsView(){
+  const container = document.getElementById('repMerchantsWrap');
+  container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">جارٍ تحميل بيانات التجار...</div>';
+  try{
+    await ensureMerchantData();
+  } catch(e){
+    container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">تعذر تحميل بيانات التجار. تأكد من رفع ملف merchant_targets.json بجوار ملفات التطبيق على نفس المسار.</div>';
+    return;
+  }
+  repMerchantsListCache = buildRepMerchantsList();
+  repMerchantsPage = 0;
+  paintRepMerchantsView();
+}
+
+function paintRepMerchantsView(){
+  const container = document.getElementById('repMerchantsWrap');
+  let list = repMerchantsListCache || [];
+  if(repMerchantsSearchTerm){
+    const q = repMerchantsSearchTerm.trim();
+    list = list.filter(function(m){ return (m.n && m.n.indexOf(q)>-1) || (m.pos && m.pos.indexOf(q)>-1); });
+  }
+  list = list.slice().sort(function(a,b){ return a.pct - b.pct; });
+  const total = list.length;
+  const start = repMerchantsPage * REP_MERCHANTS_PAGE_SIZE;
+  const pageItems = list.slice(start, start+REP_MERCHANTS_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total/REP_MERCHANTS_PAGE_SIZE));
+
+  let html = ''
+    + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">'
+    + '<input type="text" id="repMerchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (repMerchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
+    + '<div style="font-size:12.5px; color:var(--muted); font-weight:700;">إجمالي التجار: '+ total +'</div>'
+    + '</div>'
+    + '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
+    + '</tr></thead><tbody>';
+
+  pageItems.forEach(function(m,i){
+    const statusLbl = m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-');
+    const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
+    const idxKey = start+i;
+    html += '<tr class="clickable" onclick="toggleRepMerchantDetail('+idxKey+')">'
+      + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
+      + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
+      + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
+      + '<td style="font-weight:800;">'+ m.pct.toFixed(0) +'%</td>'
+      + '<td>▾</td></tr>'
+      + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="7" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
+  });
+
+  html += '</tbody></table></div>'
+    + '<div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-top:14px;">'
+    + '<button class="btn-outline" onclick="changeRepMerchantsPage(-1)" '+(repMerchantsPage<=0?'disabled':'')+'>السابق</button>'
+    + '<span style="font-size:12.5px; color:var(--muted);">صفحة '+(repMerchantsPage+1)+' من '+totalPages+'</span>'
+    + '<button class="btn-outline" onclick="changeRepMerchantsPage(1)" '+(repMerchantsPage>=totalPages-1?'disabled':'')+'>التالي</button>'
+    + '</div>';
+
+  container.innerHTML = html;
+  const inp = document.getElementById('repMerchSearchInput');
+  if(inp) inp.addEventListener('input', function(e){ repMerchantsSearchTerm = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+}
+
+function renderRepMerchantProductBreak(m){
+  const products = merchantData.meta.products;
+  let rows = '';
+  for(let i=0;i<products.length;i++){
+    const t = Math.round(m.t[i]); const c = Math.round(m.c[i]);
+    const pct = t>0 ? Math.round(c/t*100) : (c>0 ? 999 : 0);
+    rows += '<div style="display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid var(--border); font-size:11.5px;">'
+      + '<span style="flex:1;">'+ products[i] +'</span>'
+      + '<span style="flex:1; text-align:center;">هدف: '+ t.toLocaleString() +'</span>'
+      + '<span style="flex:1; text-align:center;">محقق: '+ c.toLocaleString() +'</span>'
+      + '<span style="width:50px; text-align:left; font-weight:800;">'+ pct +'%</span>'
+      + '</div>';
+  }
+  return '<div>'+ rows +'<div style="margin-top:8px; font-size:11px; color:var(--muted);">📍 '+ (m.a||'') +' &nbsp;|&nbsp; ☎ '+ (m.p||'') +'</div></div>';
+}
+
+function toggleRepMerchantDetail(idx){
+  const row = document.getElementById('repMerch-detail-'+idx);
+  if(row) row.style.display = (row.style.display==='none') ? 'table-row' : 'none';
+}
+function changeRepMerchantsPage(delta){
+  repMerchantsPage += delta;
+  paintRepMerchantsView();
 }
 
 /* ===================== طبقة الحسابات (window.storage) ===================== */
@@ -883,6 +1024,7 @@ document.querySelectorAll('.nav-item').forEach(item=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     item.classList.add('active');
     document.getElementById('page-'+item.dataset.page).classList.add('active');
+    if(item.dataset.page==='merchants') renderRepMerchantsView();
   };
 });
 
