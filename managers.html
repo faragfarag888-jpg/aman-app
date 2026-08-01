@@ -803,19 +803,19 @@ function paintMerchantsView(){
   let html = ''
     + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
     + '<input type="text" id="merchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (merchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
-    + '<select id="merchStatusFilter" style="padding:9px 16px; border:1.5px solid var(--navy); border-radius:8px; font-size:12.5px; font-weight:800; color:#FFFFFF; background:var(--teal-dark); cursor:pointer; box-shadow:0 1px 3px rgba(7,60,70,.25);">'
+    + '<select id="merchStatusFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
       + opt('all','كل الحالات',merchantsStatusFilter) + opt('active','نشط فقط',merchantsStatusFilter) + opt('inactive','غير نشط فقط',merchantsStatusFilter)
     + '</select>'
-    + '<select id="merchPerfFilter" style="padding:9px 16px; border:1.5px solid var(--navy); border-radius:8px; font-size:12.5px; font-weight:800; color:#FFFFFF; background:var(--teal-dark); cursor:pointer; box-shadow:0 1px 3px rgba(7,60,70,.25);">'
+    + '<select id="merchPerfFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
       + opt('all','كل الأداء',merchantsPerfFilter) + opt('below','لم يحقق الهدف',merchantsPerfFilter) + opt('met','حقق الهدف',merchantsPerfFilter)
     + '</select>'
-    + '<select id="merchClassFilter" style="padding:9px 16px; border:1.5px solid var(--navy); border-radius:8px; font-size:12.5px; font-weight:800; color:#FFFFFF; background:var(--teal-dark); cursor:pointer; box-shadow:0 1px 3px rgba(7,60,70,.25);">'
+    + '<select id="merchClassFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
       + opt('all','كل الفئات',merchantsClassFilter) + opt('Platinum','بلاتينيوم',merchantsClassFilter) + opt('Gold','ذهبي',merchantsClassFilter) + opt('Silver','فضي',merchantsClassFilter) + opt('Bronze','برونزي',merchantsClassFilter) + opt('Tin','مبتدئ',merchantsClassFilter)
     + '</select>'
-    + '<select id="merchSortDir" style="padding:9px 16px; border:1.5px solid var(--navy); border-radius:8px; font-size:12.5px; font-weight:800; color:#FFFFFF; background:var(--teal-dark); cursor:pointer; box-shadow:0 1px 3px rgba(7,60,70,.25);">'
+    + '<select id="merchSortDir" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
       + opt('asc','الأسوأ أداءً أولًا',merchantsSortDir) + opt('desc','الأفضل أداءً أولًا',merchantsSortDir)
     + '</select>'
-    + '<div style="font-size:13px; color:#FFFFFF; font-weight:800; background:var(--navy); padding:8px 16px; border-radius:8px;">إجمالي: '+ total +'</div>'
+    + '<div style="font-size:13px; color:#005A67; font-weight:800; background:#DCEEF0; border:1.5px solid #00A8C2; padding:8px 16px; border-radius:8px;">إجمالي: '+ total +'</div>'
     + '</div>'
     + '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
     + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
