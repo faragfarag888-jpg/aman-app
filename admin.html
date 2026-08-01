@@ -665,16 +665,6 @@ function getPosIndex(){
   POS_RECORDS.forEach(function(r){ POS_INDEX[r.k+'::'+r.id] = r; });
   return POS_INDEX;
 }
-let POS_BY_KPIKEY = null;
-function getPosByKpiKey(){
-  if(POS_BY_KPIKEY) return POS_BY_KPIKEY;
-  POS_BY_KPIKEY = {};
-  POS_RECORDS.forEach(function(r){
-    if(!POS_BY_KPIKEY[r.k]) POS_BY_KPIKEY[r.k] = [];
-    POS_BY_KPIKEY[r.k].push(r);
-  });
-  return POS_BY_KPIKEY;
-}
 const MERCHANT_CLASS_BANDS = [
   {min:50000, key:'Platinum', ar:'بلاتينيوم', bg:'#E5E7EB', fg:'#374151'},
   {min:15000, key:'Gold', ar:'ذهبي', bg:'#FEF3C7', fg:'#92400E'},
@@ -716,53 +706,32 @@ let merchantsSortDir = 'asc';
 function buildMerchantsList(){
   const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
   const srKeys = collectSRKeys(scopeKey);
-  const posByKey = getPosByKpiKey();
+  const idx = getPosIndex();
   const list = [];
   srKeys.forEach(function(key){
     const code = dashUseKpi ? KPI_KEY_TO_CODE[key] : key;
     const kpiKey = dashUseKpi ? key : CODE_TO_KPIKEY[key];
-    if(!kpiKey) return;
-    const repData = code ? merchantData.reps[code] : null;
-    const posRecs = posByKey[kpiKey] || [];
-    const usedIds = {};
-    posRecs.forEach(function(rec){
-      usedIds[rec.id] = true;
-      let t = [0,0,0,0,0,0,0,0], c = [0,0,0,0,0,0,0,0];
-      let hasSales = false;
-      if(repData && repData[rec.id]){ t = repData[rec.id][0]; c = repData[rec.id][1]; hasSales = true; }
+    if(!code || !kpiKey) return;
+    const repData = merchantData.reps[code];
+    if(!repData) return;
+    Object.keys(repData).forEach(function(posId){
+      const arr = repData[posId];
+      const t = arr[0], c = arr[1];
       let totalT = 0, totalC = 0;
       for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
-      const hasTarget = totalT > 0;
-      const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
+      const rec = idx[kpiKey+'::'+posId];
+      const pct = totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
       list.push({
-        pos: rec.id, kpiKey: kpiKey, code: code,
-        n: rec.n, a: rec.a, p: rec.p, s: rec.s,
+        pos: posId, kpiKey: kpiKey, code: code,
+        n: rec ? rec.n : posId, a: rec ? rec.a : '', p: rec ? rec.p : '', s: rec ? rec.s : null,
         t: t, c: c, totalT: totalT, totalC: totalC,
-        pct: pct, hasTarget: hasTarget, hasSales: hasSales,
-        cls: classOf(totalC), grade: gradeOf(pct)
+        pct: pct, cls: classOf(totalC), grade: gradeOf(pct)
       });
     });
-    if(repData){
-      Object.keys(repData).forEach(function(posId){
-        if(usedIds[posId]) return;
-        const arr = repData[posId];
-        const t = arr[0], c = arr[1];
-        let totalT = 0, totalC = 0;
-        for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
-        const hasTarget = totalT > 0;
-        const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
-        list.push({
-          pos: posId, kpiKey: kpiKey, code: code,
-          n: posId, a: '', p: '', s: null,
-          t: t, c: c, totalT: totalT, totalC: totalC,
-          pct: pct, hasTarget: hasTarget, hasSales: true,
-          cls: classOf(totalC), grade: gradeOf(pct)
-        });
-      });
-    }
   });
   return list;
 }
+
 async function renderMerchantsView(){
   const container = document.getElementById('dView-merchants');
   container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">جارٍ تحميل بيانات التجار...</div>';
@@ -786,8 +755,8 @@ function paintMerchantsView(){
   }
   if(merchantsStatusFilter==='active') list = list.filter(function(m){ return m.s===true; });
   else if(merchantsStatusFilter==='inactive') list = list.filter(function(m){ return m.s===false; });
-  if(merchantsPerfFilter==='below') list = list.filter(function(m){ return m.hasTarget && m.pct < 100; });
-  else if(merchantsPerfFilter==='met') list = list.filter(function(m){ return m.hasTarget && m.pct >= 100; });
+  if(merchantsPerfFilter==='below') list = list.filter(function(m){ return m.pct < 100; });
+  else if(merchantsPerfFilter==='met') list = list.filter(function(m){ return m.pct >= 100; });
   if(merchantsClassFilter!=='all') list = list.filter(function(m){ return m.cls.key===merchantsClassFilter; });
   list = list.slice().sort(function(a,b){ return merchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct); });
   const total = list.length;
@@ -822,17 +791,14 @@ function paintMerchantsView(){
     const statusLbl = m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-');
     const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
     const idxKey = start+i;
-    const clsCell = m.hasTarget ? classBadgeHtml(m.cls) : '<span style="color:var(--muted);">-</span>';
-    const gradeCell = m.hasTarget ? gradeBadgeHtml(m.grade) : '<span style="color:var(--muted);">-</span>';
-    const pctCell = m.hasTarget ? (m.pct.toFixed(0)+'%') : '-';
     html += '<tr class="clickable" onclick="toggleMerchantDetail('+idxKey+')">'
       + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
-      + '<td>'+ clsCell +'</td>'
-      + '<td>'+ gradeCell +'</td>'
+      + '<td>'+ classBadgeHtml(m.cls) +'</td>'
+      + '<td>'+ gradeBadgeHtml(m.grade) +'</td>'
       + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
       + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
-      + '<td style="font-weight:800;">'+ pctCell +'</td>'
+      + '<td style="font-weight:800;">'+ m.pct.toFixed(0) +'%</td>'
       + '<td>▾</td></tr>'
       + '<tr id="merch-detail-'+idxKey+'" style="display:none;"><td colspan="9" style="padding:10px 16px; background:#F7FAFB;">'+ renderMerchantProductBreak(m) +'</td></tr>';
   });

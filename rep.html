@@ -519,16 +519,6 @@ function getPosIndex(){
   POS_RECORDS.forEach(function(r){ POS_INDEX[r.k+'::'+r.id] = r; });
   return POS_INDEX;
 }
-let POS_BY_KPIKEY = null;
-function getPosByKpiKey(){
-  if(POS_BY_KPIKEY) return POS_BY_KPIKEY;
-  POS_BY_KPIKEY = {};
-  POS_RECORDS.forEach(function(r){
-    if(!POS_BY_KPIKEY[r.k]) POS_BY_KPIKEY[r.k] = [];
-    POS_BY_KPIKEY[r.k].push(r);
-  });
-  return POS_BY_KPIKEY;
-}
 const MERCHANT_CLASS_BANDS = [
   {min:50000, key:'Platinum', ar:'بلاتينيوم', bg:'#E5E7EB', fg:'#374151'},
   {min:15000, key:'Gold', ar:'ذهبي', bg:'#FEF3C7', fg:'#92400E'},
@@ -571,46 +561,28 @@ function buildRepMerchantsList(){
   const s = SR_BY_CODE[currentUser.username];
   const code = currentUser.username;
   const kpiKey = s ? s.kpiKey : null;
-  if(!kpiKey) return [];
   const repData = merchantData.reps[code];
-  const posByKey = getPosByKpiKey();
-  const posRecs = posByKey[kpiKey] || [];
+  const idx = getPosIndex();
   const list = [];
-  const usedIds = {};
-  posRecs.forEach(function(rec){
-    usedIds[rec.id] = true;
-    let t = [0,0,0,0,0,0,0,0], c = [0,0,0,0,0,0,0,0];
-    if(repData && repData[rec.id]){ t = repData[rec.id][0]; c = repData[rec.id][1]; }
-    let totalT = 0, totalC = 0;
-    for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
-    const hasTarget = totalT > 0;
-    const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
-    list.push({
-      pos: rec.id, n: rec.n, a: rec.a, p: rec.p, s: rec.s,
-      t: t, c: c, totalT: totalT, totalC: totalC,
-      pct: pct, hasTarget: hasTarget,
-      cls: classOf(totalC), grade: gradeOf(pct)
-    });
-  });
-  if(repData){
+  if(repData && kpiKey){
     Object.keys(repData).forEach(function(posId){
-      if(usedIds[posId]) return;
       const arr = repData[posId];
       const t = arr[0], c = arr[1];
       let totalT = 0, totalC = 0;
       for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
-      const hasTarget = totalT > 0;
-      const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
+      const rec = idx[kpiKey+'::'+posId];
+      const pct = totalT>0 ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
       list.push({
-        pos: posId, n: posId, a: '', p: '', s: null,
+        pos: posId,
+        n: rec ? rec.n : posId, a: rec ? rec.a : '', p: rec ? rec.p : '', s: rec ? rec.s : null,
         t: t, c: c, totalT: totalT, totalC: totalC,
-        pct: pct, hasTarget: hasTarget,
-        cls: classOf(totalC), grade: gradeOf(pct)
+        pct: pct, cls: classOf(totalC), grade: gradeOf(pct)
       });
     });
   }
   return list;
 }
+
 async function renderRepMerchantsView(){
   const container = document.getElementById('repMerchantsWrap');
   container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">جارٍ تحميل بيانات التجار...</div>';
@@ -634,8 +606,8 @@ function paintRepMerchantsView(){
   }
   if(repMerchantsStatusFilter==='active') list = list.filter(function(m){ return m.s===true; });
   else if(repMerchantsStatusFilter==='inactive') list = list.filter(function(m){ return m.s===false; });
-  if(repMerchantsPerfFilter==='below') list = list.filter(function(m){ return m.hasTarget && m.pct < 100; });
-  else if(repMerchantsPerfFilter==='met') list = list.filter(function(m){ return m.hasTarget && m.pct >= 100; });
+  if(repMerchantsPerfFilter==='below') list = list.filter(function(m){ return m.pct < 100; });
+  else if(repMerchantsPerfFilter==='met') list = list.filter(function(m){ return m.pct >= 100; });
   if(repMerchantsClassFilter!=='all') list = list.filter(function(m){ return m.cls.key===repMerchantsClassFilter; });
   list = list.slice().sort(function(a,b){ return repMerchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct); });
   const total = list.length;
@@ -670,17 +642,14 @@ function paintRepMerchantsView(){
     const statusLbl = m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-');
     const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
     const idxKey = start+i;
-    const clsCell = m.hasTarget ? classBadgeHtml(m.cls) : '<span style="color:var(--muted);">-</span>';
-    const gradeCell = m.hasTarget ? gradeBadgeHtml(m.grade) : '<span style="color:var(--muted);">-</span>';
-    const pctCell = m.hasTarget ? (m.pct.toFixed(0)+'%') : '-';
     html += '<tr class="clickable" onclick="toggleRepMerchantDetail('+idxKey+')">'
       + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
-      + '<td>'+ clsCell +'</td>'
-      + '<td>'+ gradeCell +'</td>'
+      + '<td>'+ classBadgeHtml(m.cls) +'</td>'
+      + '<td>'+ gradeBadgeHtml(m.grade) +'</td>'
       + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
       + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
-      + '<td style="font-weight:800;">'+ pctCell +'</td>'
+      + '<td style="font-weight:800;">'+ m.pct.toFixed(0) +'%</td>'
       + '<td>▾</td></tr>'
       + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="9" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
   });
