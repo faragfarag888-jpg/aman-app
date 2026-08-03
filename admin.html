@@ -1393,7 +1393,7 @@ function renderAll(){
 
   document.getElementById('avatarLg').textContent = initials(r.name);
   document.getElementById('repName').textContent = r.name;
-  document.getElementById('periodBadge').textContent = `يوليو ${KPI_DATA.meta.year}`;
+  document.getElementById('periodBadge').textContent = `${AR_MONTHS[KPI_DATA.meta.month]} ${KPI_DATA.meta.year}`;
   document.getElementById('breadcrumbChip').innerHTML =
     `<b>${structEntry.rsmName || 'مصر'}</b> ◀ ${structEntry.asmName || '—'} ◀ ${structEntry.supervisorName || '—'} ◀ <b>${r.name}</b>`;
   document.getElementById('statusLine').textContent =
