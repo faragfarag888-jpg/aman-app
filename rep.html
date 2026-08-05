@@ -656,6 +656,38 @@ function setRepMerchFilterQuick(kind, val){
 }
 function paintRepMerchantsView(){
   const container = document.getElementById('repMerchantsWrap');
+  const controlsExist = document.getElementById('repMerchSearchInput');
+  function opt(val,label,cur){ return '<option value="'+val+'"'+(val===cur?' selected':'')+'>'+label+'</option>'; }
+
+  if(!controlsExist){
+    container.innerHTML = repMerchantsSummaryCardsHtml(repMerchantsListCache || [])
+      + '<div id="repMerchControlsWrap"></div>'
+      + '<div id="repMerchResultsWrap"></div>';
+    const controlsWrap = document.getElementById('repMerchControlsWrap');
+    controlsWrap.innerHTML = ''
+      + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
+      + '<input type="text" id="repMerchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (repMerchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
+      + '<select id="repMerchStatusFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
+        + opt('all','كل الحالات',repMerchantsStatusFilter) + opt('active','نشط فقط',repMerchantsStatusFilter) + opt('inactive','غير نشط فقط',repMerchantsStatusFilter)
+      + '</select>'
+      + '<select id="repMerchPerfFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
+        + opt('all','كل الأداء',repMerchantsPerfFilter) + opt('below','لم يحقق الهدف',repMerchantsPerfFilter) + opt('met','حقق الهدف',repMerchantsPerfFilter)
+      + '</select>'
+      + '<select id="repMerchClassFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
+        + opt('all','كل الفئات',repMerchantsClassFilter) + opt('Platinum','بلاتينيوم',repMerchantsClassFilter) + opt('Gold','ذهبي',repMerchantsClassFilter) + opt('Silver','فضي',repMerchantsClassFilter) + opt('Bronze','برونزي',repMerchantsClassFilter) + opt('Tin','مبتدئ',repMerchantsClassFilter)
+      + '</select>'
+      + '<select id="repMerchSortDir" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
+        + opt('asc','الأسوأ أداءً أولًا',repMerchantsSortDir) + opt('desc','الأفضل أداءً أولًا',repMerchantsSortDir)
+      + '</select>'
+      + '<div id="repMerchTotalBadge" style="font-size:13px; color:#005A67; font-weight:800; background:#DCEEF0; border:1.5px solid #00A8C2; padding:8px 16px; border-radius:8px;">إجمالي: 0</div>'
+      + '</div>';
+    document.getElementById('repMerchSearchInput').addEventListener('input', function(e){ repMerchantsSearchTerm = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+    document.getElementById('repMerchStatusFilter').addEventListener('change', function(e){ repMerchantsStatusFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+    document.getElementById('repMerchPerfFilter').addEventListener('change', function(e){ repMerchantsPerfFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+    document.getElementById('repMerchClassFilter').addEventListener('change', function(e){ repMerchantsClassFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+    document.getElementById('repMerchSortDir').addEventListener('change', function(e){ repMerchantsSortDir = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+  }
+
   let list = repMerchantsListCache || [];
   if(repMerchantsSearchTerm){
     const q = repMerchantsSearchTerm.trim();
@@ -672,27 +704,10 @@ function paintRepMerchantsView(){
   const pageItems = list.slice(start, start+REP_MERCHANTS_PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(total/REP_MERCHANTS_PAGE_SIZE));
 
-  function opt(val,label,cur){ return '<option value="'+val+'"'+(val===cur?' selected':'')+'>'+label+'</option>'; }
+  const totalBadge = document.getElementById('repMerchTotalBadge');
+  if(totalBadge) totalBadge.textContent = 'إجمالي: ' + total;
 
-  let html = repMerchantsSummaryCardsHtml(repMerchantsListCache || []);
-  html += ''
-    + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">'
-    + '<input type="text" id="repMerchSearchInput" placeholder="ابحث بالاسم أو رقم POS" value="'+ (repMerchantsSearchTerm||'').replace(/"/g,'&quot;') +'" style="flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;">'
-    + '<select id="repMerchStatusFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
-      + opt('all','كل الحالات',repMerchantsStatusFilter) + opt('active','نشط فقط',repMerchantsStatusFilter) + opt('inactive','غير نشط فقط',repMerchantsStatusFilter)
-    + '</select>'
-    + '<select id="repMerchPerfFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
-      + opt('all','كل الأداء',repMerchantsPerfFilter) + opt('below','لم يحقق الهدف',repMerchantsPerfFilter) + opt('met','حقق الهدف',repMerchantsPerfFilter)
-    + '</select>'
-    + '<select id="repMerchClassFilter" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
-      + opt('all','كل الفئات',repMerchantsClassFilter) + opt('Platinum','بلاتينيوم',repMerchantsClassFilter) + opt('Gold','ذهبي',repMerchantsClassFilter) + opt('Silver','فضي',repMerchantsClassFilter) + opt('Bronze','برونزي',repMerchantsClassFilter) + opt('Tin','مبتدئ',repMerchantsClassFilter)
-    + '</select>'
-    + '<select id="repMerchSortDir" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
-      + opt('asc','الأسوأ أداءً أولًا',repMerchantsSortDir) + opt('desc','الأفضل أداءً أولًا',repMerchantsSortDir)
-    + '</select>'
-    + '<div style="font-size:13px; color:#005A67; font-weight:800; background:#DCEEF0; border:1.5px solid #00A8C2; padding:8px 16px; border-radius:8px;">إجمالي: '+ total +'</div>'
-    + '</div>'
-    + '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
+  let html = '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
     + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
     + '</tr></thead><tbody>';
 
@@ -722,17 +737,7 @@ function paintRepMerchantsView(){
     + '<button class="btn-outline" onclick="changeRepMerchantsPage(1)" '+(repMerchantsPage>=totalPages-1?'disabled':'')+'>التالي</button>'
     + '</div>';
 
-  container.innerHTML = html;
-  const inp = document.getElementById('repMerchSearchInput');
-  if(inp) inp.addEventListener('input', function(e){ repMerchantsSearchTerm = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
-  const selStatus = document.getElementById('repMerchStatusFilter');
-  if(selStatus) selStatus.addEventListener('change', function(e){ repMerchantsStatusFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
-  const selPerf = document.getElementById('repMerchPerfFilter');
-  if(selPerf) selPerf.addEventListener('change', function(e){ repMerchantsPerfFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
-  const selClass = document.getElementById('repMerchClassFilter');
-  if(selClass) selClass.addEventListener('change', function(e){ repMerchantsClassFilter = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
-  const selSort = document.getElementById('repMerchSortDir');
-  if(selSort) selSort.addEventListener('change', function(e){ repMerchantsSortDir = e.target.value; repMerchantsPage = 0; paintRepMerchantsView(); });
+  document.getElementById('repMerchResultsWrap').innerHTML = html;
 }
 function renderRepMerchantProductBreak(m){
   const products = merchantData.meta.products;
