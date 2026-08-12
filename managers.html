@@ -758,7 +758,7 @@ function buildMerchantsList(){
         const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
         list.push({
           pos: posId, kpiKey: kpiKey, code: code,
-          n: posId, a: '', p: '', s: null,
+          n: posId, a: '', p: '', s: (totalC > 0), sInferred: true,
           t: t, c: c, totalT: totalT, totalC: totalC,
           pct: pct, hasTarget: hasTarget, hasSales: true,
           cls: classOf(totalC), grade: gradeOf(pct)
@@ -833,6 +833,7 @@ function paintMerchantsView(){
       + '</select>'
       + '<div id="merchTotalBadge" style="font-size:13px; color:#005A67; font-weight:800; background:#DCEEF0; border:1.5px solid #00A8C2; padding:8px 16px; border-radius:8px;">إجمالي: 0</div>'
       + '</div>';
+    controlsWrap.innerHTML += '<div style="font-size:10.5px; color:var(--muted); margin-top:2px;">* الحالة مقدّرة تلقائيًا (مفيش تأكيد مباشر من ملف نقاط البيع لهذا التاجر)</div>';
     document.getElementById('merchSearchInput').addEventListener('input', function(e){ merchantsSearchTerm = e.target.value; merchantsPage = 0; paintMerchantsView(); });
     document.getElementById('merchStatusFilter').addEventListener('change', function(e){ merchantsStatusFilter = e.target.value; merchantsPage = 0; paintMerchantsView(); });
     document.getElementById('merchPerfFilter').addEventListener('change', function(e){ merchantsPerfFilter = e.target.value; merchantsPage = 0; paintMerchantsView(); });
@@ -864,10 +865,10 @@ function paintMerchantsView(){
     + '</tr></thead><tbody>';
 
   pageItems.forEach(function(m,i){
-    const statusLbl = m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-');
+    const statusLbl = (m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-')) + (m.sInferred ? ' *' : '');
     const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
     const idxKey = start+i;
-    const clsCell = m.hasTarget ? classBadgeHtml(m.cls) : '<span style="color:var(--muted);">-</span>';
+    const clsCell = classBadgeHtml(m.cls);
     const gradeCell = m.hasTarget ? gradeBadgeHtml(m.grade) : '<span style="color:var(--muted);">-</span>';
     const pctCell = m.hasTarget ? (m.pct.toFixed(0)+'%') : '-';
     html += '<tr class="clickable" onclick="toggleMerchantDetail('+idxKey+')">'
