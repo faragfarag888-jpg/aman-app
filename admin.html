@@ -718,6 +718,10 @@ let merchantsStatusFilter = 'all';
 let merchantsPerfFilter = 'all';
 let merchantsClassFilter = 'all';
 let merchantsSortDir = 'gap';
+let merchantsViewMode = 'summary';
+let merchantsSelectedRepCode = null;
+let merchantsSelectedRepName = '';
+let repSummaryCache = null;
 
 function buildMerchantsList(){
   const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
@@ -780,6 +784,90 @@ async function renderMerchantsView(){
   }
   merchantsListCache = buildMerchantsList();
   merchantsPage = 0;
+  repSummaryCache = null;
+  merchantsSelectedRepCode = null;
+  const distinctReps = new Set(merchantsListCache.map(function(m){ return m.code; }));
+  merchantsViewMode = (distinctReps.size > 1) ? 'summary' : 'detail';
+  paintMerchantsView();
+}
+
+function buildRepSummary(){
+  const byRep = {};
+  merchantsListCache.forEach(function(m){
+    if(!byRep[m.code]) byRep[m.code] = { code: m.code, name: (BY_KEY[m.kpiKey] ? BY_KEY[m.kpiKey].name : m.code), totalT:0, totalC:0, merchantCount:0, belowCount:0, activeCount:0, inactiveCount:0 };
+    const r = byRep[m.code];
+    r.totalT += m.totalT; r.totalC += m.totalC;
+    r.merchantCount += 1;
+    if(m.hasTarget && m.pct<100) r.belowCount += 1;
+    if(m.s===true) r.activeCount += 1;
+    if(m.s===false) r.inactiveCount += 1;
+  });
+  return Object.values(byRep);
+}
+
+function paintRepSummaryView(){
+  const container = document.getElementById('dView-merchants');
+  const controlsExist = document.getElementById('merchSearchInput');
+  if(!repSummaryCache) repSummaryCache = buildRepSummary();
+
+  if(!controlsExist){
+    container.innerHTML = merchantsSummaryCardsHtml(merchantsListCache || [])
+      + '<div style="font-size:13px; font-weight:800; color:var(--navy); margin-bottom:10px;">📋 مرتبين حسب أكبر فرصة ضايعة — دوس على أي مندوب لعرض تفاصيل تجاره</div>'
+      + '<div id="merchControlsWrap"></div>'
+      + '<div id="merchResultsWrap"></div>';
+  }
+
+  let repSummarySorted = repSummaryCache.slice().sort(function(a,b){ return (b.totalT-b.totalC) - (a.totalT-a.totalC); });
+  window._repSummarySorted = repSummarySorted;
+
+  let html = '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
+    + '<th>المندوب</th><th>عدد التجار</th><th>نشطة</th><th>غير نشطة</th><th>تجار لم يحققوا الهدف</th><th>الهدف</th><th>المحقق</th><th>الفرصة المتبقية</th>'
+    + '</tr></thead><tbody>';
+
+  repSummarySorted.forEach(function(r, idx){
+    const gap = r.totalT - r.totalC;
+    const gapCell = gap > 0 ? ('<span style="color:#9A6A0E; font-weight:800;">'+Math.round(gap).toLocaleString()+'</span>') : '<span style="color:#0B6E52; font-weight:800;">✓ محقق</span>';
+    html += '<tr class="clickable" onclick="drillIntoRepByIndex('+idx+')">'
+      + '<td style="font-weight:800;">'+ r.name +'</td>'
+      + '<td>'+ r.merchantCount +'</td>'
+      + '<td style="color:var(--teal-dark); font-weight:700;">'+ r.activeCount +'</td>'
+      + '<td style="color:#E5484D; font-weight:700;">'+ r.inactiveCount +'</td>'
+      + '<td style="font-weight:700;">'+ r.belowCount +'</td>'
+      + '<td>'+ Math.round(r.totalT).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(r.totalC).toLocaleString() +'</td>'
+      + '<td>'+ gapCell +'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  document.getElementById('merchControlsWrap').innerHTML = '';
+  document.getElementById('merchResultsWrap').innerHTML = html;
+}
+
+function drillIntoRepByIndex(idx){
+  const r = window._repSummarySorted[idx];
+  drillIntoRep(r.code, r.name);
+}
+function drillIntoRep(code, name){
+  merchantsSelectedRepCode = code;
+  merchantsSelectedRepName = name;
+  merchantsViewMode = 'detail';
+  merchantsPage = 0;
+  const controlsWrap = document.getElementById('merchControlsWrap');
+  if(controlsWrap) controlsWrap.innerHTML = '';
+  const oldInput = document.getElementById('merchSearchInput');
+  if(oldInput) oldInput.remove();
+  paintMerchantsView();
+}
+
+function backToRepSummary(){
+  merchantsViewMode = 'summary';
+  merchantsSelectedRepCode = null;
+  merchantsPage = 0;
+  const controlsWrap = document.getElementById('merchControlsWrap');
+  if(controlsWrap) controlsWrap.innerHTML = '';
+  const oldInput = document.getElementById('merchSearchInput');
+  if(oldInput) oldInput.remove();
   paintMerchantsView();
 }
 
@@ -809,11 +897,17 @@ function setMerchFilterQuick(kind, val){
 }
 function paintMerchantsView(){
   const container = document.getElementById('dView-merchants');
+  if(merchantsViewMode==='summary'){
+    paintRepSummaryView();
+    return;
+  }
   const controlsExist = document.getElementById('merchSearchInput');
   function opt(val,label,cur){ return '<option value="'+val+'"'+(val===cur?' selected':'')+'>'+label+'</option>'; }
 
   if(!controlsExist){
-    container.innerHTML = merchantsSummaryCardsHtml(merchantsListCache || [])
+    const backBtnHtml = merchantsSelectedRepCode ? ('<div style="margin-bottom:10px;"><button class="btn-outline" onclick="backToRepSummary()">← رجوع لملخص المناديب</button> <span style="font-weight:800; color:var(--navy); margin-right:8px;">تجار: '+merchantsSelectedRepName+'</span></div>') : '';
+    container.innerHTML = merchantsSummaryCardsHtml(merchantsSelectedRepCode ? merchantsListCache.filter(function(m){return m.code===merchantsSelectedRepCode;}) : (merchantsListCache || []))
+      + backBtnHtml
       + '<div id="merchControlsWrap"></div>'
       + '<div id="merchResultsWrap"></div>';
     const controlsWrap = document.getElementById('merchControlsWrap');
@@ -843,6 +937,7 @@ function paintMerchantsView(){
   }
 
   let list = merchantsListCache || [];
+  if(merchantsSelectedRepCode) list = list.filter(function(m){ return m.code===merchantsSelectedRepCode; });
   if(merchantsSearchTerm){
     const q = merchantsSearchTerm.trim();
     list = list.filter(function(m){ return (m.n && m.n.indexOf(q)>-1) || (m.pos && m.pos.indexOf(q)>-1); });
