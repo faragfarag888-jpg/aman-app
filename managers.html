@@ -1124,22 +1124,36 @@ function shippingSummaryCardsHtml(list){
     + '</div>';
 }
 
+function getScopeOwnTarget(){
+  const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
+  const node = scopeNode(scopeKey);
+  return node ? node.totals.tgt : 0;
+}
 function shippingOverviewBadgesHtml(){
   const activeList = merchantsListCache.filter(function(m){ return isShippingFlagged(m) && m.s===true; });
   const inactiveList = merchantsListCache.filter(function(m){ return isShippingFlagged(m) && m.s===false; });
   const activeLost = activeList.reduce(function(s,m){ return s+shippingLostSales(m); }, 0);
   const inactiveLost = inactiveList.reduce(function(s,m){ return s+shippingLostSales(m); }, 0);
+  const scopeTarget = getScopeOwnTarget();
+  function pctLine(lost){
+    if(!scopeTarget || scopeTarget<=0) return '';
+    const pct = (lost/scopeTarget*100).toFixed(1);
+    return '<div style="font-size:11px; color:var(--muted); font-weight:700; margin-top:6px;">📊 يعادل '+pct+'% من هدفك الشهري</div>';
+  }
   function panel(icon, label, count, lost, fg, bgSoft){
     return '<div style="flex:1; min-width:220px; background:#fff; border:1.5px solid '+fg+'22; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.04);">'
       + '<div style="background:'+bgSoft+'; padding:10px 18px; font-size:13px; font-weight:800; color:'+fg+'; display:flex; align-items:center; gap:6px;">'+icon+' '+label+'</div>'
-      + '<div style="padding:16px 18px; display:flex; justify-content:space-between; align-items:center;">'
+      + '<div style="padding:16px 18px;">'
+      + '<div style="display:flex; justify-content:space-between; align-items:center;">'
       + '<div><div style="font-size:11px; color:var(--muted); font-weight:700; margin-bottom:2px;">عدد التجار</div><div style="font-size:22px; font-weight:900; color:'+fg+';">'+count.toLocaleString()+'</div></div>'
       + '<div style="width:1px; align-self:stretch; background:#EEF2F4;"></div>'
       + '<div style="text-align:left;"><div style="font-size:11px; color:var(--muted); font-weight:700; margin-bottom:2px;">إجمالي البيع المفقود</div><div style="font-size:18px; font-weight:900; color:'+fg+';">'+Math.round(lost).toLocaleString()+' <span style="font-size:12px; font-weight:700;">ج.م</span></div></div>'
+      + '</div>'
+      + pctLine(lost)
       + '</div></div>';
   }
   return '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px;">'
-    + panel('🟢', 'إجمالي نشط بدون شحن كافٍ', activeList.length, activeLost, '#0B6E52', '#E1F5EE')
+    + panel('🟢', 'إجمالي نشط بدون شحن', activeList.length, activeLost, '#0B6E52', '#E1F5EE')
     + panel('🔴', 'إجمالي غير نشط', inactiveList.length, inactiveLost, '#C23A3A', '#FCEBEB')
     + '</div>';
 }
