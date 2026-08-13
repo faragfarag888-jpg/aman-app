@@ -570,7 +570,7 @@ let repMerchantsListCache = null;
 let repMerchantsStatusFilter = 'all';
 let repMerchantsPerfFilter = 'all';
 let repMerchantsClassFilter = 'all';
-let repMerchantsSortDir = 'asc';
+let repMerchantsSortDir = 'gap';
 
 function buildRepMerchantsList(){
   const s = SR_BY_CODE[currentUser.username];
@@ -677,7 +677,7 @@ function paintRepMerchantsView(){
         + opt('all','كل الفئات',repMerchantsClassFilter) + opt('Platinum','بلاتينيوم',repMerchantsClassFilter) + opt('Gold','ذهبي',repMerchantsClassFilter) + opt('Silver','فضي',repMerchantsClassFilter) + opt('Bronze','برونزي',repMerchantsClassFilter) + opt('Tin','مبتدئ',repMerchantsClassFilter)
       + '</select>'
       + '<select id="repMerchSortDir" style="padding:9px 16px; border:1.5px solid #00A8C2; border-radius:8px; font-size:12.5px; font-weight:800; color:#2E4653; background:#EDF3F4; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04);">'
-        + opt('asc','الأسوأ أداءً أولًا',repMerchantsSortDir) + opt('desc','الأفضل أداءً أولًا',repMerchantsSortDir)
+        + opt('gap','⭐ أكبر فرصة (بالجنيه)',repMerchantsSortDir) + opt('asc','الأسوأ أداءً أولًا',repMerchantsSortDir) + opt('desc','الأفضل أداءً أولًا',repMerchantsSortDir)
       + '</select>'
       + '<div id="repMerchTotalBadge" style="font-size:13px; color:#005A67; font-weight:800; background:#DCEEF0; border:1.5px solid #00A8C2; padding:8px 16px; border-radius:8px;">إجمالي: 0</div>'
       + '</div>';
@@ -699,7 +699,10 @@ function paintRepMerchantsView(){
   if(repMerchantsPerfFilter==='below') list = list.filter(function(m){ return m.hasTarget && m.pct < 100; });
   else if(repMerchantsPerfFilter==='met') list = list.filter(function(m){ return m.hasTarget && m.pct >= 100; });
   if(repMerchantsClassFilter!=='all') list = list.filter(function(m){ return m.cls.key===repMerchantsClassFilter; });
-  list = list.slice().sort(function(a,b){ return repMerchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct); });
+  list = list.slice().sort(function(a,b){
+    if(repMerchantsSortDir==='gap') return (b.totalT-b.totalC) - (a.totalT-a.totalC);
+    return repMerchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct);
+  });
   const total = list.length;
   const start = repMerchantsPage * REP_MERCHANTS_PAGE_SIZE;
   const pageItems = list.slice(start, start+REP_MERCHANTS_PAGE_SIZE);
@@ -709,7 +712,7 @@ function paintRepMerchantsView(){
   if(totalBadge) totalBadge.textContent = 'إجمالي: ' + total;
 
   let html = '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
-    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th></th>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th>الفرصة المتبقية</th><th></th>'
     + '</tr></thead><tbody>';
 
   pageItems.forEach(function(m,i){
@@ -719,6 +722,8 @@ function paintRepMerchantsView(){
     const clsCell = classBadgeHtml(m.cls);
     const gradeCell = m.hasTarget ? gradeBadgeHtml(m.grade) : '<span style="color:var(--muted);">-</span>';
     const pctCell = m.hasTarget ? (m.pct.toFixed(0)+'%') : '-';
+    const gapVal = m.totalT - m.totalC;
+    const gapCell = m.hasTarget ? (gapVal > 0 ? ('<span style="color:#9A6A0E; font-weight:800;">'+Math.round(gapVal).toLocaleString()+'</span>') : '<span style="color:#0B6E52; font-weight:800;">✓ محقق</span>') : '-';
     html += '<tr class="clickable" onclick="toggleRepMerchantDetail('+idxKey+')">'
       + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
@@ -727,8 +732,9 @@ function paintRepMerchantsView(){
       + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
       + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
       + '<td style="font-weight:800;">'+ pctCell +'</td>'
+      + '<td>'+ gapCell +'</td>'
       + '<td>▾</td></tr>'
-      + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="9" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
+      + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="10" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
   });
 
   html += '</tbody></table></div>'
