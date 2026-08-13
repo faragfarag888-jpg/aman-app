@@ -251,6 +251,7 @@ tr.me td{background:#F4FBFA;}
       <div class="nav-item active" data-page="overview"><span class="ico">◆</span>نظرة عامة</div>
       <div class="nav-item" data-page="team"><span class="ico">☰</span>ترتيب الفريق</div>
       <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
+      <div class="nav-item" data-page="shipping"><span class="ico">📦</span>متابعة الشحن اليومي</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
     <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br><span id="remDaysWrap">⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</span></div>
@@ -298,6 +299,12 @@ tr.me td{background:#F4FBFA;}
     <div class="page" id="page-merchants">
       <div class="topbar"><h2 class="page-title">أداء التجار</h2></div>
       <div id="repMerchantsWrap"></div>
+    </div>
+
+    <!-- متابعة الشحن اليومي -->
+    <div class="page" id="page-shipping">
+      <div class="topbar"><h2 class="page-title">📦 متابعة الشحن اليومي</h2></div>
+      <div id="repShippingWrap"></div>
     </div>
 
     <!-- ترتيب الفريق -->
@@ -785,6 +792,80 @@ function toggleRepMerchantDetail(idx){
   const row = document.getElementById('repMerch-detail-'+idx);
   if(row) row.style.display = (row.style.display==='none') ? 'table-row' : 'none';
 }
+
+/* ===================== متابعة الشحن اليومي (مندوب) ===================== */
+let repShippingStatusFilter = 'active';
+let repShippingListCache = null;
+
+async function renderRepShippingView(){
+  const container = document.getElementById('repShippingWrap');
+  container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">جارٍ تحميل بيانات التجار...</div>';
+  try{
+    await ensureMerchantData();
+  } catch(e){
+    container.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--muted); font-size:13px;">تعذر تحميل بيانات التجار.</div>';
+    return;
+  }
+  repMerchantsListCache = buildRepMerchantsList();
+  paintRepShippingView();
+}
+
+function getRepShippingList(){
+  return repMerchantsListCache.filter(function(m){
+    if(m.totalC !== 0) return false;
+    if(repShippingStatusFilter==='active') return m.s===true;
+    if(repShippingStatusFilter==='inactive') return m.s===false;
+    return true;
+  });
+}
+
+function repShippingFilterBarHtml(){
+  const activeStyle = 'padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; border:1.5px solid;';
+  const onA = repShippingStatusFilter==='active';
+  return '<div style="display:flex; gap:10px; margin-bottom:14px;">'
+    + '<button onclick="setRepShippingFilter(\'active\')" style="'+activeStyle+(onA?'background:var(--teal-dark); color:#fff; border-color:var(--teal-dark);':'background:#fff; color:var(--teal-dark); border-color:var(--teal-dark);')+'">🟢 نشط بدون شحن</button>'
+    + '<button onclick="setRepShippingFilter(\'inactive\')" style="'+activeStyle+(!onA?'background:#E5484D; color:#fff; border-color:#E5484D;':'background:#fff; color:#E5484D; border-color:#E5484D;')+'">🔴 غير نشط</button>'
+    + '</div>';
+}
+function setRepShippingFilter(f){
+  repShippingStatusFilter = f;
+  paintRepShippingView();
+}
+function repShippingSummaryCardsHtml(list){
+  const count = list.length;
+  const lostTotal = list.reduce(function(s,m){ return s+m.totalT; }, 0);
+  const avg = count>0 ? lostTotal/count : 0;
+  function card(val,label,bg,fg){
+    return '<div style="flex:1; min-width:150px; background:'+bg+'; border-radius:12px; padding:16px 18px; text-align:center;">'
+      + '<div style="font-size:20px; font-weight:900; color:'+fg+';">'+val+'</div>'
+      + '<div style="font-size:12px; color:'+fg+'; margin-top:4px; font-weight:700;">'+label+'</div></div>';
+  }
+  return '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">'
+    + card(count.toLocaleString(), 'عدد التجار', '#FDF3E3', '#9A6A0E')
+    + card(Math.round(lostTotal).toLocaleString()+' ج.م', 'إجمالي البيع المفقود', '#FCEBEB', '#C23A3A')
+    + card(Math.round(avg).toLocaleString()+' ج.م', 'متوسط لكل تاجر', '#EAF3FE', '#1D5EA8')
+    + '</div>';
+}
+function paintRepShippingView(){
+  const container = document.getElementById('repShippingWrap');
+  const list = getRepShippingList().slice().sort(function(a,b){ return b.totalT - a.totalT; });
+  let html = repShippingFilterBarHtml() + repShippingSummaryCardsHtml(list);
+  html += '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>البيع المفقود</th><th>تواصل</th></tr></thead><tbody>';
+  list.forEach(function(m){
+    const statusLbl = (m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-')) + (m.sInferred ? ' *' : '');
+    const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
+    html += '<tr>'
+      + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
+      + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
+      + '<td style="color:#C23A3A; font-weight:800;">'+ Math.round(m.totalT).toLocaleString() +'</td>'
+      + '<td>'+ callBtnHtml(m.p) +'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
 function changeRepMerchantsPage(delta){
   repMerchantsPage += delta;
   paintRepMerchantsView();
@@ -1184,6 +1265,7 @@ document.querySelectorAll('.nav-item').forEach(item=>{
     item.classList.add('active');
     document.getElementById('page-'+item.dataset.page).classList.add('active');
     if(item.dataset.page==='merchants') renderRepMerchantsView();
+    if(item.dataset.page==='shipping') renderRepShippingView();
   };
 });
 
