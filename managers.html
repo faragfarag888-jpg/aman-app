@@ -828,7 +828,7 @@ function paintRepSummaryView(){
   if(!repSummaryCache) repSummaryCache = buildRepSummary();
 
   if(!controlsExist){
-    container.innerHTML = merchantsSummaryCardsHtml(merchantsListCache || [])
+    container.innerHTML = merchantsTotalCardHtml(merchantsListCache || [])
       + '<div style="font-size:13px; font-weight:800; color:var(--navy); margin-bottom:10px;">📋 مرتبين حسب أكبر فرصة ضايعة — دوس على أي مندوب لعرض تفاصيل تجاره</div>'
       + '<div id="merchControlsWrap"></div>'
       + '<div id="merchResultsWrap"></div>';
@@ -888,23 +888,50 @@ function backToRepSummary(){
   paintMerchantsView();
 }
 
-function merchantsSummaryCardsHtml(fullList){
+function merchantsTotalCardHtml(fullList){
+  const total = fullList.length;
   const active = fullList.filter(function(m){ return m.s===true; }).length;
-  const inactive = fullList.filter(function(m){ return m.s===false; }).length;
-  const met = fullList.filter(function(m){ return m.hasTarget && m.pct>=100; }).length;
-  const below = fullList.filter(function(m){ return m.hasTarget && m.pct<100; }).length;
-  function card(label, value, bg, fg, onclick){
-    return '<div class="merch-summary-card" onclick="'+onclick+'" style="cursor:pointer; flex:1; min-width:130px; background:'+bg+'; border:1.5px solid '+fg+'33; border-radius:12px; padding:14px 16px;">'
-      + '<div style="font-size:22px; font-weight:900; color:'+fg+';">'+ value.toLocaleString() +'</div>'
-      + '<div style="font-size:12px; font-weight:700; color:'+fg+'; opacity:.85; margin-top:2px;">'+ label +'</div>'
+  const inactive = total - active;
+  const activePct = total>0 ? Math.round(active/total*100) : 0;
+  const inactivePct = 100 - activePct;
+  return '<div style="background:#fff; border:1.5px solid #073C4622; border-radius:14px; padding:18px 20px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.04);">'
+    + '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">'
+    + '<div style="font-size:13px; font-weight:800; color:var(--navy);">📊 إجمالي المحفظة</div>'
+    + '<div style="font-size:26px; font-weight:900; color:var(--navy);">'+ total.toLocaleString() +' <span style="font-size:13px; font-weight:700; color:var(--muted);">تاجر</span></div>'
+    + '</div>'
+    + '<div style="display:flex; height:10px; border-radius:6px; overflow:hidden; background:#EEF2F4;">'
+    + '<div style="width:'+activePct+'%; background:#0B6E52;"></div>'
+    + '<div style="width:'+inactivePct+'%; background:#E5484D;"></div>'
+    + '</div>'
+    + '<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; font-weight:700;">'
+    + '<span style="color:#0B6E52;">🟢 '+ active.toLocaleString() +' نشطة ('+activePct+'%)</span>'
+    + '<span style="color:#E5484D;">🔴 '+ inactive.toLocaleString() +' غير نشطة ('+inactivePct+'%)</span>'
+    + '</div></div>';
+}
+function merchantsDynamicCardsHtml(list){
+  const regular = list.filter(function(m){ return m.status===2; }).length;
+  const followUp = list.filter(function(m){ return m.status===1; }).length;
+  const newM = list.filter(function(m){ return m.status===0; }).length;
+  const met = list.filter(function(m){ return m.hasTarget && m.pct>=100; }).length;
+  const below = list.filter(function(m){ return m.hasTarget && m.pct<100; }).length;
+  function card(label, value, bg, fg, onclick, flexBasis){
+    return '<div class="merch-summary-card" onclick="'+(onclick||'')+'" style="cursor:'+(onclick?'pointer':'default')+'; flex:1; min-width:'+(flexBasis||130)+'px; background:'+bg+'; border:1.5px solid '+fg+'33; border-radius:12px; padding:13px 15px;">'
+      + '<div style="font-size:20px; font-weight:900; color:'+fg+';">'+ value.toLocaleString() +'</div>'
+      + '<div style="font-size:11.5px; font-weight:700; color:'+fg+'; opacity:.9; margin-top:2px;">'+ label +'</div>'
       + '</div>';
   }
-  return '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">'
-    + card('نشطة', active, '#E1F5EE', '#0B6E52', "setMerchFilterQuick('status','active')")
-    + card('غير نشطة', inactive, '#FCEBEB', '#C23A3A', "setMerchFilterQuick('status','inactive')")
-    + card('حققوا الهدف', met, '#EAF3FE', '#1D5EA8', "setMerchFilterQuick('perf','met')")
-    + card('لم يحققوا الهدف', below, '#FDF3E3', '#9A6A0E', "setMerchFilterQuick('perf','below')")
+  const row1Label = '<div style="font-size:11.5px; font-weight:800; color:var(--muted); margin-bottom:6px;">الأداء اليومي (حسب الفلتر الحالي)</div>';
+  const row1 = '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;">'
+    + card('✅ أداء منتظم', regular, '#E1F5EE', '#0B6E52')
+    + card('📉 يتطلب متابعة', followUp, '#FDF3E3', '#9A6A0E')
+    + card('🆕 تحت التأسيس', newM, '#EAF3FE', '#1D5EA8')
     + '</div>';
+  const row2Label = '<div style="font-size:11.5px; font-weight:800; color:var(--muted); margin:12px 0 6px;">الإنجاز مقابل الهدف الشهري الكامل (حسب الفلتر الحالي)</div>';
+  const row2 = '<div style="display:flex; gap:10px; flex-wrap:wrap;">'
+    + card('✅ حققوا الهدف الشهري', met, '#EAF3FE', '#1D5EA8', "setMerchFilterQuick('perf','met')", 160)
+    + card('❌ لم يحققوا بعد', below, '#FCEBEB', '#C23A3A', "setMerchFilterQuick('perf','below')", 160)
+    + '</div>';
+  return '<div style="margin-bottom:16px;">' + row1Label + row1 + row2Label + row2 + '</div>';
 }
 function setMerchFilterQuick(kind, val){
   if(kind==='status') merchantsStatusFilter = val;
@@ -923,8 +950,10 @@ function paintMerchantsView(){
 
   if(!controlsExist){
     const backBtnHtml = merchantsSelectedRepCode ? ('<div style="margin-bottom:10px;"><button class="btn-outline" onclick="backToRepSummary()">← رجوع لملخص المناديب</button> <span style="font-weight:800; color:var(--navy); margin-right:8px;">تجار: '+merchantsSelectedRepName+'</span></div>') : '';
-    container.innerHTML = merchantsSummaryCardsHtml(merchantsSelectedRepCode ? merchantsListCache.filter(function(m){return m.code===merchantsSelectedRepCode;}) : (merchantsListCache || []))
+    const totalScopeList = merchantsSelectedRepCode ? merchantsListCache.filter(function(m){return m.code===merchantsSelectedRepCode;}) : (merchantsListCache || []);
+    container.innerHTML = merchantsTotalCardHtml(totalScopeList)
       + backBtnHtml
+      + '<div id="merchDynamicCardsWrap"></div>'
       + '<div id="merchControlsWrap"></div>'
       + '<div id="merchResultsWrap"></div>';
     const controlsWrap = document.getElementById('merchControlsWrap');
@@ -968,6 +997,9 @@ function paintMerchantsView(){
     if(merchantsSortDir==='gap') return (b.totalT-b.totalC) - (a.totalT-a.totalC);
     return merchantsSortDir==='asc' ? (a.pct-b.pct) : (b.pct-a.pct);
   });
+  const dynWrap = document.getElementById('merchDynamicCardsWrap');
+  if(dynWrap) dynWrap.innerHTML = merchantsDynamicCardsHtml(list);
+
   const total = list.length;
   const start = merchantsPage * MERCHANTS_PAGE_SIZE;
   const pageItems = list.slice(start, start+MERCHANTS_PAGE_SIZE);
@@ -1152,7 +1184,7 @@ function shippingOverviewBadgesHtml(){
       + pctLine(lost)
       + '</div></div>';
   }
-  return '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px;">'
+  return '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; justify-content:center;">'
     + panel('🟢', 'إجمالي نشط بدون شحن', activeList.length, activeLost, '#0B6E52', '#E1F5EE')
     + panel('🔴', 'إجمالي غير نشط', inactiveList.length, inactiveLost, '#C23A3A', '#FCEBEB')
     + '</div>';
