@@ -567,6 +567,16 @@ function statusBadgeHtml(st){
   if(st===2) return '<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; background:#E1F5EE; color:#0B6E52;">✅ أداء منتظم</span>';
   return '<span style="color:var(--muted);">-</span>';
 }
+function trendIconHtml(trd){
+  if(trd===1) return '<span title="بيتحسّن" style="color:#0B6E52; font-weight:900; font-size:14px;">▲</span>';
+  if(trd===-1) return '<span title="بيتراجع" style="color:#E5484D; font-weight:900; font-size:14px;">▼</span>';
+  if(trd===0) return '<span title="مستقر" style="color:var(--muted); font-weight:900; font-size:14px;">▬</span>';
+  return '<span style="color:var(--muted); font-size:11px;">—</span>';
+}
+function callBtnHtml(phone){
+  if(!phone || phone==='NON') return '<span style="color:var(--muted);">-</span>';
+  return '<a href="tel:'+phone+'" onclick="event.stopPropagation();" style="display:inline-block; padding:3px 9px; border-radius:16px; font-size:11px; font-weight:800; background:var(--teal-dark); color:#fff; text-decoration:none;">📞 اتصال</a>';
+}
 function gradeBadgeHtml(g){ return '<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; background:'+g.bg+'; color:'+g.fg+';">'+g.key+'</span>'; }
 
 let repMerchantsPage = 0;
@@ -590,15 +600,15 @@ function buildRepMerchantsList(){
   const usedIds = {};
   posRecs.forEach(function(rec){
     usedIds[rec.id] = true;
-    let t = [0,0,0,0,0,0,0,0], c = [0,0,0,0,0,0,0,0], st = null;
-    if(repData && repData[rec.id]){ t = repData[rec.id][0]; c = repData[rec.id][1]; st = repData[rec.id][2]; }
+    let t = [0,0,0,0,0,0,0,0], c = [0,0,0,0,0,0,0,0], st = null, trd = null;
+    if(repData && repData[rec.id]){ t = repData[rec.id][0]; c = repData[rec.id][1]; st = repData[rec.id][2]; trd = repData[rec.id][3]; }
     let totalT = 0, totalC = 0;
     for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
     const hasTarget = totalT > 0;
     const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
     list.push({
       pos: rec.id, n: rec.n, a: rec.a, p: rec.p, s: rec.s,
-      t: t, c: c, totalT: totalT, totalC: totalC, status: st,
+      t: t, c: c, totalT: totalT, totalC: totalC, status: st, trend: trd,
       pct: pct, hasTarget: hasTarget,
       cls: classOf(totalC), grade: gradeOf(pct)
     });
@@ -607,14 +617,14 @@ function buildRepMerchantsList(){
     Object.keys(repData).forEach(function(posId){
       if(usedIds[posId]) return;
       const arr = repData[posId];
-      const t = arr[0], c = arr[1], st = arr[2];
+      const t = arr[0], c = arr[1], st = arr[2], trd = arr[3];
       let totalT = 0, totalC = 0;
       for(let i=0;i<t.length;i++){ totalT += t[i]; totalC += c[i]; }
       const hasTarget = totalT > 0;
       const pct = hasTarget ? (totalC/totalT*100) : (totalC>0 ? 999 : 0);
       list.push({
         pos: posId, n: posId, a: '', p: '', s: (totalC > 0), sInferred: true,
-        t: t, c: c, totalT: totalT, totalC: totalC, status: st,
+        t: t, c: c, totalT: totalT, totalC: totalC, status: st, trend: trd,
         pct: pct, hasTarget: hasTarget,
         cls: classOf(totalC), grade: gradeOf(pct)
       });
@@ -718,7 +728,7 @@ function paintRepMerchantsView(){
   if(totalBadge) totalBadge.textContent = 'إجمالي: ' + total;
 
   let html = '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
-    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>الوضع</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th>الفرصة المتبقية</th><th></th>'
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>الفئة</th><th>الوضع</th><th>الاتجاه</th><th>التقييم</th><th>الهدف</th><th>المحقق</th><th>%</th><th>الفرصة المتبقية</th><th>تواصل</th><th></th>'
     + '</tr></thead><tbody>';
 
   pageItems.forEach(function(m,i){
@@ -735,13 +745,15 @@ function paintRepMerchantsView(){
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
       + '<td>'+ clsCell +'</td>'
       + '<td>'+ statusBadgeHtml(m.status) +'</td>'
+      + '<td>'+ trendIconHtml(m.trend) +'</td>'
       + '<td>'+ gradeCell +'</td>'
       + '<td>'+ Math.round(m.totalT).toLocaleString() +'</td>'
       + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
       + '<td style="font-weight:800;">'+ pctCell +'</td>'
       + '<td>'+ gapCell +'</td>'
+      + '<td onclick="event.stopPropagation();">'+ callBtnHtml(m.p) +'</td>'
       + '<td>▾</td></tr>'
-      + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="11" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
+      + '<tr id="repMerch-detail-'+idxKey+'" style="display:none;"><td colspan="13" style="padding:10px 16px; background:#F7FAFB;">'+ renderRepMerchantProductBreak(m) +'</td></tr>';
   });
 
   html += '</tbody></table></div>'
