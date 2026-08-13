@@ -1111,9 +1111,27 @@ function shippingSummaryCardsHtml(list){
     + '</div>';
 }
 
+function shippingOverviewBadgesHtml(){
+  const activeList = merchantsListCache.filter(function(m){ return m.totalC===0 && m.s===true; });
+  const inactiveList = merchantsListCache.filter(function(m){ return m.totalC===0 && m.s===false; });
+  const activeLost = activeList.reduce(function(s,m){ return s+m.totalT; }, 0);
+  const inactiveLost = inactiveList.reduce(function(s,m){ return s+m.totalT; }, 0);
+  function badge(count, lost, label, bg, fg){
+    return '<div style="flex:1; min-width:180px; background:'+bg+'; border-radius:12px; padding:14px 18px;">'
+      + '<div style="font-size:12.5px; font-weight:800; color:'+fg+'; margin-bottom:4px;">'+label+'</div>'
+      + '<div style="display:flex; justify-content:space-between; align-items:baseline;">'
+      + '<span style="font-size:19px; font-weight:900; color:'+fg+';">'+count.toLocaleString()+' تاجر</span>'
+      + '<span style="font-size:12.5px; font-weight:700; color:'+fg+';">'+Math.round(lost).toLocaleString()+' ج.م</span>'
+      + '</div></div>';
+  }
+  return '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">'
+    + badge(activeList.length, activeLost, '🟢 إجمالي نشط بدون شحن', '#E1F5EE', '#0B6E52')
+    + badge(inactiveList.length, inactiveLost, '🔴 إجمالي غير نشط', '#FCEBEB', '#C23A3A')
+    + '</div>';
+}
 function paintShippingView(){
   const container = document.getElementById('dView-shipping');
-  container.innerHTML = '<h3 style="margin-bottom:14px;">📦 متابعة الشحن اليومي</h3>';
+  container.innerHTML = '<h3 style="margin-bottom:14px;">📦 متابعة الشحن اليومي</h3>' + shippingOverviewBadgesHtml();
 
   if(shippingViewMode==='summary'){
     if(!shippingRepSummaryCache) shippingRepSummaryCache = buildShippingRepSummary();

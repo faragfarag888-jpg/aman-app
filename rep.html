@@ -846,10 +846,28 @@ function repShippingSummaryCardsHtml(list){
     + card(Math.round(avg).toLocaleString()+' ج.م', 'متوسط لكل تاجر', '#EAF3FE', '#1D5EA8')
     + '</div>';
 }
+function repShippingOverviewBadgesHtml(){
+  const activeList = repMerchantsListCache.filter(function(m){ return m.totalC===0 && m.s===true; });
+  const inactiveList = repMerchantsListCache.filter(function(m){ return m.totalC===0 && m.s===false; });
+  const activeLost = activeList.reduce(function(s,m){ return s+m.totalT; }, 0);
+  const inactiveLost = inactiveList.reduce(function(s,m){ return s+m.totalT; }, 0);
+  function badge(count, lost, label, bg, fg){
+    return '<div style="flex:1; min-width:150px; background:'+bg+'; border-radius:12px; padding:14px 16px;">'
+      + '<div style="font-size:12px; font-weight:800; color:'+fg+'; margin-bottom:4px;">'+label+'</div>'
+      + '<div style="display:flex; justify-content:space-between; align-items:baseline;">'
+      + '<span style="font-size:18px; font-weight:900; color:'+fg+';">'+count.toLocaleString()+' تاجر</span>'
+      + '<span style="font-size:12px; font-weight:700; color:'+fg+';">'+Math.round(lost).toLocaleString()+' ج.م</span>'
+      + '</div></div>';
+  }
+  return '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">'
+    + badge(activeList.length, activeLost, '🟢 إجمالي نشط بدون شحن', '#E1F5EE', '#0B6E52')
+    + badge(inactiveList.length, inactiveLost, '🔴 إجمالي غير نشط', '#FCEBEB', '#C23A3A')
+    + '</div>';
+}
 function paintRepShippingView(){
   const container = document.getElementById('repShippingWrap');
   const list = getRepShippingList().slice().sort(function(a,b){ return b.totalT - a.totalT; });
-  let html = repShippingFilterBarHtml() + repShippingSummaryCardsHtml(list);
+  let html = repShippingOverviewBadgesHtml() + repShippingFilterBarHtml() + repShippingSummaryCardsHtml(list);
   html += '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
     + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>البيع المفقود</th><th>تواصل</th></tr></thead><tbody>';
   list.forEach(function(m){
