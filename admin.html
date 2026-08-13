@@ -1061,9 +1061,23 @@ async function renderShippingView(){
   paintShippingView();
 }
 
+const SHIPPING_PROJ_THRESHOLD = 0.20;
+function shippingProjection(m){
+  return m.totalT * (DAY_ELAPSED / DAYS_IN_MONTH);
+}
+function shippingLostSales(m){
+  const proj = shippingProjection(m);
+  const lost = proj - m.totalC;
+  return lost > 0 ? lost : 0;
+}
+function isShippingFlagged(m){
+  const proj = shippingProjection(m);
+  if(proj <= 0) return m.totalC === 0;
+  return (m.totalC / proj) < SHIPPING_PROJ_THRESHOLD;
+}
 function getShippingList(){
   return merchantsListCache.filter(function(m){
-    if(m.totalC !== 0) return false;
+    if(!isShippingFlagged(m)) return false;
     if(shippingStatusFilter==='active') return m.s===true;
     if(shippingStatusFilter==='inactive') return m.s===false;
     return true;
@@ -1075,7 +1089,7 @@ function buildShippingRepSummary(){
   const byRep = {};
   list.forEach(function(m){
     if(!byRep[m.code]) byRep[m.code] = { code: m.code, name: (BY_KEY[m.kpiKey] ? BY_KEY[m.kpiKey].name : m.code), lostSales:0, merchantCount:0 };
-    byRep[m.code].lostSales += m.totalT;
+    byRep[m.code].lostSales += shippingLostSales(m);
     byRep[m.code].merchantCount += 1;
   });
   return Object.values(byRep);
@@ -1097,7 +1111,7 @@ function setShippingFilter(f){
 
 function shippingSummaryCardsHtml(list){
   const count = list.length;
-  const lostTotal = list.reduce(function(s,m){ return s+m.totalT; }, 0);
+  const lostTotal = list.reduce(function(s,m){ return s+shippingLostSales(m); }, 0);
   const avg = count>0 ? lostTotal/count : 0;
   function card(val,label,bg,fg){
     return '<div style="flex:1; min-width:150px; background:'+bg+'; border-radius:12px; padding:16px 18px; text-align:center;">'
@@ -1112,21 +1126,22 @@ function shippingSummaryCardsHtml(list){
 }
 
 function shippingOverviewBadgesHtml(){
-  const activeList = merchantsListCache.filter(function(m){ return m.totalC===0 && m.s===true; });
-  const inactiveList = merchantsListCache.filter(function(m){ return m.totalC===0 && m.s===false; });
-  const activeLost = activeList.reduce(function(s,m){ return s+m.totalT; }, 0);
-  const inactiveLost = inactiveList.reduce(function(s,m){ return s+m.totalT; }, 0);
-  function badge(count, lost, label, bg, fg){
-    return '<div style="flex:1; min-width:180px; background:'+bg+'; border-radius:12px; padding:14px 18px;">'
-      + '<div style="font-size:12.5px; font-weight:800; color:'+fg+'; margin-bottom:4px;">'+label+'</div>'
-      + '<div style="display:flex; justify-content:space-between; align-items:baseline;">'
-      + '<span style="font-size:19px; font-weight:900; color:'+fg+';">'+count.toLocaleString()+' تاجر</span>'
-      + '<span style="font-size:12.5px; font-weight:700; color:'+fg+';">'+Math.round(lost).toLocaleString()+' ج.م</span>'
+  const activeList = merchantsListCache.filter(function(m){ return isShippingFlagged(m) && m.s===true; });
+  const inactiveList = merchantsListCache.filter(function(m){ return isShippingFlagged(m) && m.s===false; });
+  const activeLost = activeList.reduce(function(s,m){ return s+shippingLostSales(m); }, 0);
+  const inactiveLost = inactiveList.reduce(function(s,m){ return s+shippingLostSales(m); }, 0);
+  function panel(icon, label, count, lost, fg, bgSoft){
+    return '<div style="flex:1; min-width:220px; background:#fff; border:1.5px solid '+fg+'22; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.04);">'
+      + '<div style="background:'+bgSoft+'; padding:10px 18px; font-size:13px; font-weight:800; color:'+fg+'; display:flex; align-items:center; gap:6px;">'+icon+' '+label+'</div>'
+      + '<div style="padding:16px 18px; display:flex; justify-content:space-between; align-items:center;">'
+      + '<div><div style="font-size:11px; color:var(--muted); font-weight:700; margin-bottom:2px;">عدد التجار</div><div style="font-size:22px; font-weight:900; color:'+fg+';">'+count.toLocaleString()+'</div></div>'
+      + '<div style="width:1px; align-self:stretch; background:#EEF2F4;"></div>'
+      + '<div style="text-align:left;"><div style="font-size:11px; color:var(--muted); font-weight:700; margin-bottom:2px;">إجمالي البيع المفقود</div><div style="font-size:18px; font-weight:900; color:'+fg+';">'+Math.round(lost).toLocaleString()+' <span style="font-size:12px; font-weight:700;">ج.م</span></div></div>'
       + '</div></div>';
   }
-  return '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">'
-    + badge(activeList.length, activeLost, '🟢 إجمالي نشط بدون شحن', '#E1F5EE', '#0B6E52')
-    + badge(inactiveList.length, inactiveLost, '🔴 إجمالي غير نشط', '#FCEBEB', '#C23A3A')
+  return '<div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px;">'
+    + panel('🟢', 'إجمالي نشط بدون شحن كافٍ', activeList.length, activeLost, '#0B6E52', '#E1F5EE')
+    + panel('🔴', 'إجمالي غير نشط', inactiveList.length, inactiveLost, '#C23A3A', '#FCEBEB')
     + '</div>';
 }
 function paintShippingView(){
@@ -1158,19 +1173,21 @@ function paintShippingView(){
   const backBtnHtml = shippingSelectedRepCode ? ('<div style="margin-bottom:10px;"><button class="btn-outline" onclick="backToShippingSummary()">← رجوع لملخص المناديب</button> <span style="font-weight:800; color:var(--navy); margin-right:8px;">تجار: '+shippingSelectedRepName+'</span></div>') : '';
   let list = getShippingList();
   if(shippingSelectedRepCode) list = list.filter(function(m){ return m.code===shippingSelectedRepCode; });
-  list = list.slice().sort(function(a,b){ return b.totalT - a.totalT; });
+  list = list.slice().sort(function(a,b){ return shippingLostSales(b) - shippingLostSales(a); });
 
   container.innerHTML += shippingFilterBarHtml() + backBtnHtml + shippingSummaryCardsHtml(list);
 
   let html = '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
-    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>البيع المفقود</th><th>تواصل</th></tr></thead><tbody>';
+    + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>المحقق</th><th>المتوقع لحد الآن</th><th>البيع المفقود</th><th>تواصل</th></tr></thead><tbody>';
   list.forEach(function(m){
     const statusLbl = (m.s===true ? 'نشط' : (m.s===false ? 'غير نشط' : '-')) + (m.sInferred ? ' *' : '');
     const statusColor = m.s===true ? 'var(--teal-dark)' : (m.s===false ? '#E5484D' : 'var(--muted)');
     html += '<tr>'
       + '<td>'+ m.n +'</td><td>'+ m.pos +'</td>'
       + '<td><span style="color:'+statusColor+'; font-weight:800;">'+statusLbl+'</span></td>'
-      + '<td style="color:#C23A3A; font-weight:800;">'+ Math.round(m.totalT).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(m.totalC).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(shippingProjection(m)).toLocaleString() +'</td>'
+      + '<td style="color:#C23A3A; font-weight:800;">'+ Math.round(shippingLostSales(m)).toLocaleString() +'</td>'
       + '<td>'+ callBtnHtml(m.p) +'</td>'
       + '</tr>';
   });
