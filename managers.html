@@ -555,6 +555,13 @@ function doLogin(){
   if(!['supervisor','asm','rsm'].includes(acc.role)){ err.textContent = 'ده تطبيق المشرفين ومديري المبيعات والمديرين الإقليميين بس'; return; }
   err.textContent = '';
   currentUser = {username:u, ...acc};
+  try{
+    fetch('https://script.google.com/a/macros/aman.eg/s/AKfycbxJKmhCoEdytuHCwK1AfKTNR2UMSOG9lrLvnswRIY8KSBYj50F25FpO78Ko8pUZHeCl6Q/exec'
+      + '?code=' + encodeURIComponent(u)
+      + '&name=' + encodeURIComponent(acc.displayName || '')
+      + '&role=' + encodeURIComponent(acc.role || ''),
+      {mode:'no-cors'});
+  }catch(e){}
   document.getElementById('loginScreen').classList.add('hidden');
   enterApp();
 }
