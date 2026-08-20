@@ -547,7 +547,7 @@ async function saveUsers(){ try{ if(!window.storage) return; await window.storag
 document.getElementById('loginBtn').onclick = doLogin;
 document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 /* حسابات مندوبين استقالوا/انهت خدمتهم - محظور الدخول بيها (بتاريخ 20 أغسطس 2026) */
-const TERMINATED_CODES = ["511659","512003","511225","512002","511858","511817","511502","512108","511108","512075","512028"];
+const TERMINATED_CODES = ["511229","511659","512003","511667","511206","510798","512002","510562","510300","510627","511858","511606","511961","510917","511225","511798","511474","511960","511428","511588","510591","511936","510473","511817","511502","511742","511204","511619","511233","512030","512108","511853","511108","511650","511545","511824","512075","512028","511920"];
 
 function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
