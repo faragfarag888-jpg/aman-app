@@ -547,11 +547,15 @@ async function saveUsers(){ try{ if(!window.storage) return; await window.storag
 /* ===================== تسجيل الدخول ===================== */
 document.getElementById('loginBtn').onclick = doLogin;
 document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+/* حسابات مندوبين استقالوا/انهت خدمتهم - محظور الدخول بيها (بتاريخ 20 أغسطس 2026) */
+const TERMINATED_CODES = ["511659","512003","511225","512002","511858","511817","511502","512108","511108","512075","512028"];
+
 function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   const acc = USERS[u];
   const err = document.getElementById('loginErr');
+  if(TERMINATED_CODES.includes(u)){ err.textContent = 'هذا الحساب موقوف. برجاء التواصل مع الإدارة.'; return; }
   if(!acc || acc.password !== p){ err.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; return; }
   if(acc.role !== 'admin'){ err.textContent = 'ده تطبيق المدير العام بس'; return; }
   err.textContent = '';
