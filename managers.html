@@ -1416,8 +1416,80 @@ function maybeShowMonthlyWelcome(){
   }catch(e){}
 }
 
+function maybeShowDailyBanner(){
+  try{
+    var today = new Date();
+    var dateKey = today.getFullYear() + '-' + (today.getMonth()+1) + '-' + today.getDate();
+    var flagKey = 'dailyBannerShown_' + currentUser.username + '_' + dateKey;
+    if(localStorage.getItem(flagKey)) return;
+    localStorage.setItem(flagKey, '1');
+
+    var hour = today.getHours();
+    var period, gradient, icon, messages;
+    if(hour >= 5 && hour < 12){
+      period = 'morning'; gradient = 'linear-gradient(135deg, #027E8F, #00A8C2)'; icon = '\u2600\ufe0f';
+      messages = [
+        'صباح الخير يا أبطال أمان! يوم جديد وفرصة نكسر فيه الأرقام \ud83d\udcaa',
+        'يوم جديد، طاقة جديدة! يلا نبدأ بقوة \ud83d\ude80',
+        'صباح النشاط! كل يوم فرصة نقرّب فيها من الهدف \u2b50',
+        'صباح الخير! خليك متفائل، النهارده يوم حلو \ud83c\udf1e'
+      ];
+    } else if(hour >= 12 && hour < 17){
+      period = 'noon'; gradient = 'linear-gradient(135deg, #F06F2E, #F4995B)'; icon = '\ud83d\udd25';
+      messages = [
+        'نص اليوم فات، والنص التاني ملكك! كمّل بنفس الحماس \ud83d\ude80',
+        'استمر، إنجازك النهارده بيبني نجاحك بكرة \ud83d\udcaa',
+        'شوية تاني وتوصل لهدفك! يلا كمّل \ud83d\udd25',
+        'خد نفس واستكمل بقوة، الباقي مش بعيد \u2728'
+      ];
+    } else if(hour >= 17 && hour < 21){
+      period = 'evening'; gradient = 'linear-gradient(135deg, #6B4C9A, #9B6FBF)'; icon = '\ud83c\udf06';
+      messages = [
+        'اليوم قرّب يخلص، اقفله بقوة زي ما بدأته \ud83d\ude4c',
+        'كام ساعة كده وتقفل يوم ناجح، يلا خلّيه مميز \ud83c\udf1f',
+        'مجهودك النهارده هيفرق، كمّل لحد الآخر \ud83d\udcaa',
+        'قربنا نقفل اليوم، خليها خاتمة قوية \u2728'
+      ];
+    } else {
+      period = 'night'; gradient = 'linear-gradient(135deg, #073C46, #0A5566)'; icon = '\ud83c\udf19';
+      messages = [
+        'لسه شغال دلوقتي؟ تسلم على همتك، بكرة يوم جديد \ud83c\udf1f',
+        'إصرارك دليل نجاحك، خد قسط من الراحة كمان شوية \ud83c\udf19',
+        'شكرًا على مجهودك طول اليوم، يلا وقت الراحة قرّب \ud83d\udcab',
+        'يوم تاني خلص بمجهودك، تصبح على خير \ud83c\udf1b'
+      ];
+    }
+    var msg = messages[Math.floor(Math.random() * messages.length)];
+
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-20px);opacity:0;'
+      + 'z-index:9500;background:' + gradient + ';border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:12px;'
+      + 'box-shadow:0 4px 14px rgba(7,60,70,.2);max-width:90%;transition:transform .4s ease, opacity .4s ease;direction:rtl;';
+    var iconSpan = document.createElement('span');
+    iconSpan.style.cssText = 'font-size:22px;';
+    iconSpan.textContent = icon;
+    var textDiv = document.createElement('div');
+    textDiv.style.cssText = 'color:#fff;font-size:14.5px;font-weight:600;line-height:1.4;';
+    textDiv.textContent = msg;
+    banner.appendChild(iconSpan);
+    banner.appendChild(textDiv);
+    document.body.appendChild(banner);
+
+    requestAnimationFrame(function(){
+      banner.style.opacity = '1';
+      banner.style.transform = 'translateX(-50%) translateY(0)';
+    });
+    setTimeout(function(){
+      banner.style.opacity = '0';
+      banner.style.transform = 'translateX(-50%) translateY(-20px)';
+      setTimeout(function(){ banner.remove(); }, 400);
+    }, 4000);
+  }catch(e){}
+}
+
 function enterApp(){
   maybeShowMonthlyWelcome();
+  maybeShowDailyBanner();
   if(currentUser.role === 'admin'){
     document.getElementById('adminScreen').classList.remove('hidden');
     renderAdminAccounts();
