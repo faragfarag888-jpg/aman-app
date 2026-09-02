@@ -1164,7 +1164,36 @@ function selectDashRoleTab(type){
   renderDashboard();
 }
 
+function maybeShowMonthlyWelcome(){
+  try{
+    var y = KPI_DATA.meta.year, m = KPI_DATA.meta.month;
+    var period = y + '-' + m;
+    var flagKey = 'welcomeShown_' + currentUser.username + '_' + period;
+    if(localStorage.getItem(flagKey)) return;
+    var msg = 'اهلا بشهر سبتمبر \ud83c\udf19 شهر الخير والبركة\nمكملين مع فريق امان، اقوى وافضل فريق مبيعات في مصر \ud83d\udcaa';
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(7,60,70,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);max-width:380px;width:90%;padding:28px 24px;text-align:center;direction:rtl;';
+    var text = document.createElement('div');
+    text.style.cssText = 'font-size:16px;line-height:1.8;color:var(--text);white-space:pre-line;margin-bottom:20px;';
+    text.textContent = msg;
+    var btn = document.createElement('button');
+    btn.textContent = 'تمام';
+    btn.style.cssText = 'background:var(--teal);color:#fff;border:none;border-radius:10px;padding:10px 32px;font-size:15px;font-weight:700;cursor:pointer;';
+    btn.onclick = function(){
+      localStorage.setItem(flagKey, '1');
+      overlay.remove();
+    };
+    card.appendChild(text);
+    card.appendChild(btn);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }catch(e){}
+}
+
 function enterApp(){
+  maybeShowMonthlyWelcome();
   if(currentUser.role === 'admin'){
     document.getElementById('adminScreen').classList.remove('hidden');
     renderAdminAccounts();
