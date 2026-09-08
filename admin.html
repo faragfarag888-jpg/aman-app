@@ -516,7 +516,7 @@ function dupDetailsBlock(n){
   return `
     <div style="margin-top:6px;">
       <button onclick="const el=document.getElementById('${uid}'); el.style.display = el.style.display==='none' ? 'block' : 'none';"
-        style="background:none; border:none; color:var(--teal-dark); font-size:11.5px; font-weight:700; cursor:pointer; padding:0; text-decoration:underline;">
+        style="background:var(--teal-dark); border:none; color:#fff; font-size:14px; font-weight:800; cursor:pointer; padding:8px 16px; border-radius:8px; box-shadow:var(--shadow-sm);">
         عرض التفاصيل (${details.length})
       </button>
       <div id="${uid}" style="display:none; margin-top:6px; max-height:180px; overflow-y:auto;">
