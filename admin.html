@@ -445,6 +445,12 @@ function initials(name){ return (name||'?').trim().split(' ').slice(0,2).map(w=>
 function isVacant(name){ return /vacant/i.test(name); }
 function growthOf(n){ return n.totals.lm>0 ? (n.totals.cm-n.totals.lm)/n.totals.lm*100 : null; }
 
+function acceptanceTone(pct){
+  if(pct >= 70) return {bg:'#E4F6E9', text:'var(--green)'};
+  if(pct >= 40) return {bg:'#FDF0DD', text:'#B97615'};
+  return {bg:'#FBE7E8', text:'var(--red)'};
+}
+
 function renderAcceptanceCard(n, elId){
   const el = document.getElementById(elId);
   if(!el) return;
@@ -453,21 +459,23 @@ function renderAcceptanceCard(n, elId){
   el.style.display = '';
   const salesPct = acc.salesTarget>0 ? (acc.sales/acc.salesTarget*100) : 0;
   const machPct = acc.machinesTarget>0 ? (acc.machinesActive/acc.machinesTarget*100) : 0;
+  const salesTone = acceptanceTone(salesPct);
+  const machTone = acceptanceTone(machPct);
   el.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
       <h3 style="margin:0;">Acceptance / الفيزا</h3>
-      <span style="font-size:12px; color:var(--muted);">هدف لكل مندوب: 70,000 ج.م + 5 ماكينات</span>
+      <span style="font-size:12px; color:var(--muted);">هدفك الشهري: 70,000 ج.م + 5 ماكينات</span>
     </div>
     <div class="kpi-row">
-      <div class="kpi accent-teal">
+      <div class="kpi" style="background:${salesTone.bg};">
         <div class="lbl">مبيعات Acceptance</div>
-        <div class="val">${fmt(acc.sales)}<span class="unit">ج.م</span></div>
-        <div style="font-size:12px; color:var(--muted); margin-top:4px;">من هدف ${fmt(acc.salesTarget)} ج.م (${salesPct.toFixed(1)}%)</div>
+        <div class="val" style="color:${salesTone.text};">${fmt(acc.sales)}<span class="unit">ج.م</span></div>
+        <div style="font-size:12px; color:${salesTone.text}; margin-top:4px;">من هدف ${fmt(acc.salesTarget)} ج.م (${salesPct.toFixed(1)}%)</div>
       </div>
-      <div class="kpi ${machPct>=90?'accent-teal':'accent-amber'}">
+      <div class="kpi" style="background:${machTone.bg};">
         <div class="lbl">الماكينات النشطة</div>
-        <div class="val">${acc.machinesActive}<span class="unit">من ${acc.machinesTarget}</span></div>
-        <div style="font-size:12px; color:var(--muted); margin-top:4px;">إجمالي الماكينات المسجّلة: ${acc.machinesTotal}</div>
+        <div class="val" style="color:${machTone.text};">${acc.machinesActive}<span class="unit">من ${acc.machinesTarget}</span></div>
+        <div style="font-size:12px; color:${machTone.text}; margin-top:4px;">إجمالي الماكينات المسجّلة: ${acc.machinesTotal}</div>
       </div>
     </div>`;
 }
