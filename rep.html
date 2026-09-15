@@ -33,10 +33,12 @@ body{font-family:'Tajawal','Segoe UI',Tahoma,Arial,sans-serif; background:var(--
 .breadcrumb-chip{margin-top:10px; font-size:10px; color:#B9C6D6; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:9px; padding:8px 9px; font-weight:600; line-height:1.9;}
 .breadcrumb-chip b{color:#fff;}
 .nav-list{display:flex; flex-direction:column; gap:5px;}
-.nav-item{display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:10px; cursor:pointer; color:#C4D0DE; font-size:13.5px; font-weight:700;}
+.nav-item{display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:10px; cursor:pointer; color:#C4D0DE; font-size:13.5px; font-weight:700; transition:background .15s ease, color .15s ease;}
 .nav-item .ico{width:18px; text-align:center;}
 .nav-item:hover{background:#1E3251;}
-.nav-item.active{background:rgba(14,156,147,.18); color:#fff; border:1px solid rgba(14,156,147,.5);}
+.nav-item.active{background:#0E7C8C; color:#fff; border:1px solid #0E7C8C;}
+.nav-item-gold{color:#D4AF6A;}
+.nav-item-gold.active{background:#B8863B; color:#fff; border:1px solid #B8863B;}
 .side-foot{margin-top:auto; font-size:10.5px; color:#7488A0; line-height:1.8; border-top:1px solid #24374F; padding-top:14px;}
 .side-foot b{color:#C4D0DE;}
 .hidden{display:none !important;}
@@ -252,7 +254,7 @@ tr.me td{background:#F4FBFA;}
       <div class="nav-item" data-page="team"><span class="ico">☰</span>ترتيب الفريق</div>
       <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
       <div class="nav-item" data-page="shipping"><span class="ico">📦</span>متابعة الشحن اليومي</div>
-      <div class="nav-item" data-page="offers"><span class="ico">🎁</span>العروض الشهرية</div>
+      <div class="nav-item nav-item-gold" data-page="offers"><span class="ico">🎁</span>العروض الشهرية</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
     <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br><span id="remDaysWrap">⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</span></div>
