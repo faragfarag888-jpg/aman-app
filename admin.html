@@ -178,9 +178,11 @@ tr.me td{background:#F4FBFA;}
 .dash-sidebar{width:235px; flex:0 0 235px; background:linear-gradient(180deg,var(--navy) 0%, var(--navy-2) 100%); color:#fff; padding:22px 16px; display:flex; flex-direction:column; gap:16px;}
 .dash-sidebar h1{margin:0; font-size:16px; font-weight:900;}
 .dash-sidebar span{display:block; font-size:11px; color:#9FC8CE; font-weight:600;}
-.dash-view-switch{display:flex; flex-wrap:wrap; background:#04262C; border-radius:11px; padding:4px; gap:4px;}
-.dview-pill{flex:1 1 30%; min-width:70px; text-align:center; font-size:11.5px; font-weight:800; color:#8FB4B9; padding:8px 4px; border-radius:8px; cursor:pointer; line-height:1.3;}
-.dview-pill.active{background:var(--teal); color:#fff;}
+.dash-view-switch{display:flex; flex-wrap:wrap; background:#052A30; border-radius:11px; padding:4px; gap:4px;}
+.dview-pill{flex:1 1 30%; min-width:70px; text-align:center; font-size:11.5px; font-weight:800; color:#7FA8AE; padding:8px 4px; border-radius:8px; cursor:pointer; line-height:1.3; transition:background .15s ease, color .15s ease;}
+.dview-pill.active{background:#0E7C8C; color:#fff;}
+.dview-pill-gold{color:#D4AF6A;}
+.dview-pill-gold.active{background:#B8863B; color:#fff;}
 .dash-role-tabs{display:flex; flex-direction:column; gap:5px;}
 .drole-tab{display:flex; align-items:center; gap:9px; padding:11px 12px; border-radius:10px; cursor:pointer; color:#C4D8DB; font-size:13.5px; font-weight:700; transition:background .15s ease, color .15s ease;}
 .drole-tab .ico{width:16px; text-align:center; font-size:13px;}
@@ -354,7 +356,7 @@ tr.me td{background:#F4FBFA;}
       <div class="dview-pill active" data-dview="dashboard">لوحة المتابعة</div>
       <div class="dview-pill" data-dview="merchants">أداء التجار</div>
       <div class="dview-pill" data-dview="shipping">متابعة الشحن اليومي</div>
-      <div class="dview-pill" data-dview="offers">🎁 العروض الشهرية</div>
+      <div class="dview-pill dview-pill-gold" data-dview="offers">🎁 العروض الشهرية</div>
     </div>
     <div class="dash-role-tabs" id="dRoleTabs"></div>
     <div class="dash-selector" id="dSelectorWrap"></div>
