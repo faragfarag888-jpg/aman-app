@@ -354,6 +354,7 @@ tr.me td{background:#F4FBFA;}
       <div class="dview-pill active" data-dview="dashboard">لوحة المتابعة</div>
       <div class="dview-pill" data-dview="merchants">أداء التجار</div>
       <div class="dview-pill" data-dview="shipping">متابعة الشحن اليومي</div>
+      <div class="dview-pill" data-dview="offers">🎁 العروض الشهرية</div>
     </div>
     <div class="dash-role-tabs" id="dRoleTabs"></div>
     <div class="dash-selector" id="dSelectorWrap"></div>
@@ -404,6 +405,7 @@ tr.me td{background:#F4FBFA;}
 
     <div id="dView-merchants" style="display:none;"></div>
     <div id="dView-shipping" style="display:none;"></div>
+    <div id="dView-offers" style="display:none;"></div>
     <div id="dView-orgchart" style="display:none;">
       <div class="card">
         <h3>اضغط على أي اسم لفتح لوحته</h3>
@@ -1222,7 +1224,7 @@ function offerTierTone(tier){
 }
 
 function renderOffersProductList(){
-  const container = document.getElementById('dView-shipping');
+  const container = document.getElementById('dView-offers');
   const products = Object.keys(offersData);
   let html = '<div style=\"display:flex; flex-wrap:wrap; gap:14px;\">';
   products.forEach(function(key){
@@ -1238,7 +1240,7 @@ function renderOffersProductList(){
 
 function openOfferProduct(key){
   offersSelectedProduct = key;
-  paintShippingView();
+  renderOffersMainView();
 }
 
 function offerScopedRows(product){
@@ -1259,7 +1261,7 @@ function offerScopedRows(product){
 }
 
 function renderInsuranceOffer(key){
-  const container = document.getElementById('dView-shipping');
+  const container = document.getElementById('dView-offers');
   const product = offersData[key];
   const backBtnHtml = '<div style=\"margin-bottom:10px;\"><button class=\"btn-outline\" onclick=\"openOfferProduct(null)\">← رجوع للعروض الشهرية</button> <span style=\"font-weight:800; color:var(--navy); margin-right:8px;\">'+product.label+'</span></div>';
 
@@ -1293,9 +1295,9 @@ function renderInsuranceOffer(key){
   container.innerHTML += html;
 }
 
-function renderOffersSubView(){
-  const container = document.getElementById('dView-shipping');
-  container.innerHTML = '<h3 style=\"margin-bottom:14px;\">🎁 العروض الشهرية</h3>' + shippingSubTabsHtml();
+function renderOffersMainView(){
+  const container = document.getElementById('dView-offers');
+  container.innerHTML = '<h3 style=\"margin-bottom:14px;\">🎁 العروض الشهرية</h3>';
   ensureOffersData().then(function(){
     if(offersSelectedProduct){
       renderInsuranceOffer(offersSelectedProduct);
@@ -1711,15 +1713,17 @@ document.querySelectorAll('.dview-pill').forEach(b=>{
 });
 function setDashView(view){
   document.querySelectorAll('.dview-pill').forEach(b=> b.classList.toggle('active', b.dataset.dview===view));
-  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : (view==='merchants' ? 'أداء التجار' : (view==='shipping' ? 'متابعة الشحن اليومي' : 'الهيكل التنظيمي'));
+  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : (view==='merchants' ? 'أداء التجار' : (view==='shipping' ? 'متابعة الشحن اليومي' : (view==='offers' ? 'العروض الشهرية' : 'الهيكل التنظيمي')));
   document.getElementById('dView-dashboard').style.display = view==='dashboard' ? 'block' : 'none';
   document.getElementById('dView-orgchart').style.display = view==='orgchart' ? 'block' : 'none';
   document.getElementById('dView-merchants').style.display = view==='merchants' ? 'block' : 'none';
   document.getElementById('dView-shipping').style.display = view==='shipping' ? 'block' : 'none';
+  document.getElementById('dView-offers').style.display = view==='offers' ? 'block' : 'none';
   paintDateInfo();
   if(view==='orgchart') renderOrgChartD();
   if(view==='merchants') renderMerchantsView();
   if(view==='shipping') renderShippingView();
+  if(view==='offers') renderOffersMainView();
 }
 
 /* ===================== لوحة المتابعة (مشرف/ASM/RSM/أدمن) ===================== */

@@ -252,6 +252,7 @@ tr.me td{background:#F4FBFA;}
       <div class="nav-item" data-page="team"><span class="ico">☰</span>ترتيب الفريق</div>
       <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
       <div class="nav-item" data-page="shipping"><span class="ico">📦</span>متابعة الشحن اليومي</div>
+      <div class="nav-item" data-page="offers"><span class="ico">🎁</span>العروض الشهرية</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
     <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br><span id="remDaysWrap">⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</span></div>
@@ -307,6 +308,12 @@ tr.me td{background:#F4FBFA;}
     <div class="page" id="page-shipping">
       <div class="topbar"><h2 class="page-title">📦 متابعة الشحن اليومي</h2></div>
       <div id="repShippingWrap"></div>
+    </div>
+
+    <!-- العروض الشهرية -->
+    <div class="page" id="page-offers">
+      <div class="topbar"><h2 class="page-title">🎁 العروض الشهرية</h2></div>
+      <div id="repOffersWrap"></div>
     </div>
 
     <!-- ترتيب الفريق -->
@@ -939,7 +946,7 @@ function offerTierTone(tier){
   return {bg:'#E4F6E9', text:'var(--green)'};
 }
 function renderRepOffersProductList(){
-  const container = document.getElementById('repShippingWrap');
+  const container = document.getElementById('repOffersWrap');
   const products = Object.keys(offersData);
   let html = '<div style="display:flex; flex-wrap:wrap; gap:14px;">';
   products.forEach(function(key){
@@ -954,10 +961,10 @@ function renderRepOffersProductList(){
 }
 function openRepOfferProduct(key){
   repOffersSelectedProduct = key;
-  paintRepShippingView();
+  renderRepOffersMainView();
 }
 function renderRepInsuranceOffer(key){
-  const container = document.getElementById('repShippingWrap');
+  const container = document.getElementById('repOffersWrap');
   const product = offersData[key];
   const backBtnHtml = '<div style="margin-bottom:10px;"><button class="btn-outline" onclick="openRepOfferProduct(null)">← رجوع للعروض الشهرية</button> <span style="font-weight:800; color:var(--navy); margin-right:8px;">'+product.label+'</span></div>';
 
@@ -994,9 +1001,9 @@ function renderRepInsuranceOffer(key){
   html += '</tbody></table></div>';
   container.innerHTML += html;
 }
-function renderRepOffersSubView(){
-  const container = document.getElementById('repShippingWrap');
-  container.innerHTML = '<h3 style="margin-bottom:14px;">🎁 العروض الشهرية</h3>' + repShippingSubTabsHtml();
+function renderRepOffersMainView(){
+  const container = document.getElementById('repOffersWrap');
+  container.innerHTML = '';
   ensureOffersData().then(function(){
     if(repOffersSelectedProduct){
       renderRepInsuranceOffer(repOffersSelectedProduct);
@@ -1107,12 +1114,8 @@ function repShippingOverviewBadgesHtml(){
 }
 function paintRepShippingView(){
   const container = document.getElementById('repShippingWrap');
-  if(repShippingSubTab === 'offers'){
-    renderRepOffersSubView();
-    return;
-  }
   const list = getRepShippingList().slice().sort(function(a,b){ return shippingLostSales(b) - shippingLostSales(a); });
-  let html = repShippingSubTabsHtml() + repShippingOverviewBadgesHtml() + repShippingFilterBarHtml() + repShippingSummaryCardsHtml(list);
+  let html = repShippingOverviewBadgesHtml() + repShippingFilterBarHtml() + repShippingSummaryCardsHtml(list);
   html += '<div class="card" style="padding:0; overflow-x:auto;"><table style="width:100%; font-size:12.5px;"><thead><tr>'
     + '<th>الاسم</th><th>POS</th><th>الحالة</th><th>المحقق</th><th>المتوقع لحد الآن</th><th>البيع المفقود</th><th>تواصل</th></tr></thead><tbody>';
   list.forEach(function(m){
@@ -1668,6 +1671,7 @@ document.querySelectorAll('.nav-item').forEach(item=>{
     document.getElementById('page-'+item.dataset.page).classList.add('active');
     if(item.dataset.page==='merchants') renderRepMerchantsView();
     if(item.dataset.page==='shipping') renderRepShippingView();
+    if(item.dataset.page==='offers') renderRepOffersMainView();
   };
 });
 
