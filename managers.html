@@ -1189,6 +1189,123 @@ let shippingSelectedRepCode = null;
 let shippingSelectedRepName = '';
 let shippingListCache = null;
 let shippingRepSummaryCache = null;
+let shippingSubTab = 'summary';
+let offersSelectedProduct = null;
+
+const OFFERS_JSON_URL = 'offers_data.json';
+let offersData = null;
+let offersDataPromise = null;
+function ensureOffersData(){
+  if(offersData) return Promise.resolve(offersData);
+  if(offersDataPromise) return offersDataPromise;
+  offersDataPromise = fetch(OFFERS_JSON_URL).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); }).then(function(d){ offersData = d; return d; }).catch(function(e){ offersDataPromise = null; throw e; });
+  return offersDataPromise;
+}
+function setShippingSubTab(tab){
+  shippingSubTab = tab;
+  offersSelectedProduct = null;
+  paintShippingView();
+}
+function shippingSubTabsHtml(){
+  const activeStyle = 'padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; border:1.5px solid;';
+  const onSummary = shippingSubTab==='summary';
+  return '<div style=\"display:flex; gap:10px; margin-bottom:16px;\">'
+    + '<button onclick=\"setShippingSubTab(\'summary\')\" style=\"'+activeStyle+(onSummary?'background:var(--teal-dark); color:#fff; border-color:var(--teal-dark);':'background:#fff; color:var(--teal-dark); border-color:var(--teal-dark);')+'\">ملخص الشحن</button>'
+    + '<button onclick=\"setShippingSubTab(\'offers\')\" style=\"'+activeStyle+(!onSummary?'background:var(--teal-dark); color:#fff; border-color:var(--teal-dark);':'background:#fff; color:var(--teal-dark); border-color:var(--teal-dark);')+'\">العروض الشهرية</button>'
+    + '</div>';
+}
+
+function offerTierTone(tier){
+  if(!tier || tier==='Under 250K') return {bg:'#FBE7E8', text:'var(--red)'};
+  if(tier==='250K to 500K' || tier==='500K To 1 M') return {bg:'#FDF0DD', text:'#B97615'};
+  return {bg:'#E4F6E9', text:'var(--green)'};
+}
+
+function renderOffersProductList(){
+  const container = document.getElementById('dView-shipping');
+  const products = Object.keys(offersData);
+  let html = '<div style=\"display:flex; flex-wrap:wrap; gap:14px;\">';
+  products.forEach(function(key){
+    const p = offersData[key];
+    html += '<div class=\"card clickable\" style=\"min-width:200px; flex:1;\" onclick=\"openOfferProduct(\''+key+'\')\">'
+      + '<div style=\"font-size:15px; font-weight:900; color:var(--navy);\">'+ p.label +'</div>'
+      + '<div style=\"font-size:12px; color:var(--muted); margin-top:6px;\">اضغط لعرض تفاصيل الشرائح والحوافز</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML += html;
+}
+
+function openOfferProduct(key){
+  offersSelectedProduct = key;
+  paintShippingView();
+}
+
+function offerScopedRows(product){
+  const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
+  const srKeys = collectSRKeys(scopeKey);
+  const rows = [];
+  srKeys.forEach(function(key){
+    const code = dashUseKpi ? KPI_KEY_TO_CODE[key] : key;
+    if(!code) return;
+    const repRows = product.reps[code];
+    if(!repRows) return;
+    Object.keys(repRows).forEach(function(pos){
+      const arr = repRows[pos];
+      rows.push({pos: pos, code: code, ach: arr[0], proj: arr[1], tier: arr[2], incentive: arr[3]});
+    });
+  });
+  return rows;
+}
+
+function renderInsuranceOffer(key){
+  const container = document.getElementById('dView-shipping');
+  const product = offersData[key];
+  const backBtnHtml = '<div style=\"margin-bottom:10px;\"><button class=\"btn-outline\" onclick=\"openOfferProduct(null)\">← رجوع للعروض الشهرية</button> <span style=\"font-weight:800; color:var(--navy); margin-right:8px;\">'+product.label+'</span></div>';
+
+  let rows = offerScopedRows(product);
+  rows.sort(function(a,b){ return b.proj - a.proj; });
+  const totalIncentive = rows.reduce(function(s,r){ return s + r.incentive; }, 0);
+
+  let html = backBtnHtml;
+  html += '<div style=\"display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;\">'
+    + '<div style=\"flex:1; min-width:150px; background:#EAF3FE; border-radius:12px; padding:16px 18px; text-align:center;\">'
+    + '<div style=\"font-size:20px; font-weight:900; color:#1D5EA8;\">'+ rows.length.toLocaleString() +'</div>'
+    + '<div style=\"font-size:12px; color:#1D5EA8; margin-top:4px; font-weight:700;\">عدد نقاط البيع</div></div>'
+    + '<div style=\"flex:1; min-width:150px; background:#EAF3EF; border-radius:12px; padding:16px 18px; text-align:center;\">'
+    + '<div style=\"font-size:20px; font-weight:900; color:var(--teal-dark);\">'+ Math.round(totalIncentive).toLocaleString() +' ج.م</div>'
+    + '<div style=\"font-size:12px; color:var(--teal-dark); margin-top:4px; font-weight:700;\">إجمالي الحافز المتوقع</div></div>'
+    + '</div>';
+
+  html += '<div class=\"card\" style=\"padding:0; overflow-x:auto;\"><table style=\"width:100%; font-size:12.5px;\"><thead><tr>'
+    + '<th>POS</th><th>كود المندوب</th><th>المحقق حاليًا</th><th>الإسقاط المتوقع</th><th>الشريحة</th><th>الحافز المتوقع</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    const tone = offerTierTone(r.tier);
+    html += '<tr>'
+      + '<td>'+ r.pos +'</td><td>'+ r.code +'</td>'
+      + '<td>'+ Math.round(r.ach).toLocaleString() +'</td>'
+      + '<td>'+ Math.round(r.proj).toLocaleString() +'</td>'
+      + '<td><span style=\"background:'+tone.bg+'; color:'+tone.text+'; font-weight:800; padding:3px 10px; border-radius:20px; font-size:11.5px;\">'+ (r.tier||'-') +'</span></td>'
+      + '<td style=\"font-weight:800; color:var(--teal-dark);\">'+ Math.round(r.incentive).toLocaleString() +'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML += html;
+}
+
+function renderOffersSubView(){
+  const container = document.getElementById('dView-shipping');
+  container.innerHTML = '<h3 style=\"margin-bottom:14px;\">🎁 العروض الشهرية</h3>' + shippingSubTabsHtml();
+  ensureOffersData().then(function(){
+    if(offersSelectedProduct){
+      renderInsuranceOffer(offersSelectedProduct);
+    } else {
+      renderOffersProductList();
+    }
+  }).catch(function(){
+    container.innerHTML += '<div style=\"padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;\">تعذر تحميل بيانات العروض.</div>';
+  });
+}
 
 async function renderShippingView(){
   const container = document.getElementById('dView-shipping');
@@ -1306,7 +1423,11 @@ function shippingOverviewBadgesHtml(){
 }
 function paintShippingView(){
   const container = document.getElementById('dView-shipping');
-  container.innerHTML = '<h3 style="margin-bottom:14px;">📦 متابعة الشحن اليومي</h3>' + shippingOverviewBadgesHtml();
+  if(shippingSubTab === 'offers'){
+    renderOffersSubView();
+    return;
+  }
+  container.innerHTML = '<h3 style="margin-bottom:14px;">📦 متابعة الشحن اليومي</h3>' + shippingSubTabsHtml() + shippingOverviewBadgesHtml();
 
   if(shippingViewMode==='summary'){
     if(!shippingRepSummaryCache) shippingRepSummaryCache = buildShippingRepSummary();
