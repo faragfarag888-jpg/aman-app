@@ -254,7 +254,6 @@ tr.me td{background:#F4FBFA;}
       <div class="nav-item" data-page="team"><span class="ico">☰</span>ترتيب الفريق</div>
       <div class="nav-item" data-page="merchants"><span class="ico">🏪</span>أداء التجار</div>
       <div class="nav-item" data-page="shipping"><span class="ico">📦</span>متابعة الشحن اليومي</div>
-      <div class="nav-item nav-item-gold" data-page="offers"><span class="ico">🎁</span>العروض الشهرية</div>
       <div class="nav-item" data-page="changepw"><span class="ico">⚿</span>تغيير كلمة المرور</div>
     </div>
     <div class="side-foot" id="dDateInfo">بيانات حقيقية من ملف KPI لكل أقاليم مصر<br>حتى يوم <b id="dayLbl">—</b> من <b id="daysLbl">—</b><br><span id="remDaysWrap">⏳ متبقي <b id="remDaysLbl" style="color:#3FD6C8;">—</b> أيام على نهاية الشهر</span></div>
@@ -310,12 +309,6 @@ tr.me td{background:#F4FBFA;}
     <div class="page" id="page-shipping">
       <div class="topbar"><h2 class="page-title">📦 متابعة الشحن اليومي</h2></div>
       <div id="repShippingWrap"></div>
-    </div>
-
-    <!-- العروض الشهرية -->
-    <div class="page" id="page-offers">
-      <div class="topbar"><h2 class="page-title">🎁 العروض الشهرية</h2></div>
-      <div id="repOffersWrap"></div>
     </div>
 
     <!-- ترتيب الفريق -->
@@ -1673,7 +1666,6 @@ document.querySelectorAll('.nav-item').forEach(item=>{
     document.getElementById('page-'+item.dataset.page).classList.add('active');
     if(item.dataset.page==='merchants') renderRepMerchantsView();
     if(item.dataset.page==='shipping') renderRepShippingView();
-    if(item.dataset.page==='offers') renderRepOffersMainView();
   };
 });
 
