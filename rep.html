@@ -483,10 +483,20 @@ function renderAcceptanceCard(n, elId){
   const machPct = acc.machinesTarget>0 ? (acc.machinesActive/acc.machinesTarget*100) : 0;
   const salesTone = acceptanceTone(salesPct);
   const machTone = acceptanceTone(machPct);
+  const targetAchieved = salesPct >= 100 && machPct >= 100;
+  const warningHtml = targetAchieved ? '' : `
+    <div style="margin-top:14px; padding:12px 14px; background:#FBE7E8; border:1.5px solid #F5C7C9; border-radius:10px; display:flex; align-items:flex-start; gap:10px;">
+      <span style="font-size:18px; line-height:1;">⚠️</span>
+      <div style="font-size:12.5px; color:var(--red); font-weight:700; line-height:1.7;">
+        تنبيه هام: في حالة عدم تحقيق الهدف الشهري لـ Acceptance / الفيزا (70,000 ج.م مبيعات + 5 ماكينات نشطة) بنهاية الشهر، سيتم خصم عمولة AirTime لهذا الشهر. نأمل العمل على تحقيق الهدف خلال الوقت المتبقي لتجنّب هذا الخصم.
+      </div>
+    </div>`;
   el.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:6px;">
-      <h3 style="margin:0; font-size:17px;">Acceptance / الفيزا</h3>
-      <span style="font-size:13px; color:var(--text); font-weight:700; background:#F1F8F9; padding:4px 10px; border-radius:20px;">هدفك الشهري: 70,000 ج.م + 5 ماكينات</span>
+    <div style="margin-bottom:14px;">
+      <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+        <h3 style="margin:0; font-size:17px;">Acceptance / الفيزا</h3>
+        <span style="font-size:13px; color:var(--text); font-weight:700; background:#F1F8F9; padding:4px 10px; border-radius:20px;">هدفك الشهري: 70,000 ج.م + 5 ماكينات</span>
+      </div>
     </div>
     <div class="kpi-row">
       <div class="kpi" style="background:${salesTone.bg}; border:1.5px solid ${salesTone.border};">
@@ -499,7 +509,8 @@ function renderAcceptanceCard(n, elId){
         <div class="val" style="color:${machTone.text}; font-size:30px; font-weight:900;">${acc.machinesActive}<span class="unit" style="font-size:14px; color:${machTone.text};">من ${acc.machinesTarget}</span></div>
         <div style="font-size:13px; color:${machTone.text}; font-weight:700; margin-top:6px;">إجمالي الماكينات المسجّلة: ${acc.machinesTotal}</div>
       </div>
-    </div>`;
+    </div>
+    ${warningHtml}`;
 }
 function dupNote(n){
   if(!n.rawTotals || !n.dupPosCount) return '';
