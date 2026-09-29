@@ -356,6 +356,7 @@ tr.me td{background:#F4FBFA;}
       <div class="dview-pill active" data-dview="dashboard">لوحة المتابعة</div>
       <div class="dview-pill" data-dview="merchants">أداء التجار</div>
       <div class="dview-pill" data-dview="shipping">متابعة الشحن اليومي</div>
+      <div class="dview-pill" data-dview="acceptance">💳 Acceptance / الفيزا</div>
       <div class="dview-pill dview-pill-gold" data-dview="offers">🎁 العروض الشهرية</div>
     </div>
     <div class="dash-role-tabs" id="dRoleTabs"></div>
@@ -408,6 +409,7 @@ tr.me td{background:#F4FBFA;}
 
     <div id="dView-merchants" style="display:none;"></div>
     <div id="dView-shipping" style="display:none;"></div>
+    <div id="dView-acceptance" style="display:none;"></div>
     <div id="dView-offers" style="display:none;"></div>
     <div id="dView-orgchart" style="display:none;">
       <div class="card">
@@ -1232,7 +1234,7 @@ function setShippingSubTab(tab){
 }
 function shippingSubTabsHtml(){
   const activeStyle = 'padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; border:1.5px solid;';
-  const tabs = [['summary','ملخص الشحن'],['acceptance','Acceptance / الفيزا']];
+  const tabs = [['summary','ملخص الشحن']];
   return '<div style=\"display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;\">'
     + tabs.map(function(t){
         const on = shippingSubTab===t[0];
@@ -1273,6 +1275,12 @@ function showDashAcceptanceWithSales(){
 function showDashAcceptanceWithoutSales(){
   const list = collectAcceptanceRecords(dashAcceptanceScopeKey).filter(function(r){ return !r.withSales; });
   openAcceptanceRecordsModal('لديهم الخدمة ولم يستخدموها بعد ('+list.length+')', list);
+}
+function renderAcceptanceView(){
+  const container = document.getElementById('dView-acceptance');
+  const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
+  const node = scopeNode(scopeKey);
+  container.innerHTML = '<h3 style="margin-bottom:14px;">💳 Acceptance / الفيزا</h3>' + acceptanceSubTabHtml(node, scopeKey);
 }
 function acceptanceSubTabHtml(node, scopeKey){
   dashAcceptanceScopeKey = scopeKey || dashAcceptanceScopeKey;
@@ -1527,10 +1535,6 @@ function shippingOverviewBadgesHtml(){
 }
 function paintShippingView(){
   const container = document.getElementById('dView-shipping');
-  if(shippingSubTab === 'acceptance'){
-    renderAcceptanceSubTab();
-    return;
-  }
   container.innerHTML = '<h3 style="margin-bottom:14px;">📦 متابعة الشحن اليومي</h3>' + shippingSubTabsHtml() + shippingOverviewBadgesHtml();
 
   if(shippingViewMode==='summary'){
@@ -1825,16 +1829,18 @@ document.querySelectorAll('.dview-pill').forEach(b=>{
 function setDashView(view){
   currentDashView = view;
   document.querySelectorAll('.dview-pill').forEach(b=> b.classList.toggle('active', b.dataset.dview===view));
-  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : (view==='merchants' ? 'أداء التجار' : (view==='shipping' ? 'متابعة الشحن اليومي' : (view==='offers' ? 'العروض الشهرية' : 'الهيكل التنظيمي')));
+  document.getElementById('dSideSubtitle').textContent = view==='dashboard' ? 'لوحة المتابعة' : (view==='merchants' ? 'أداء التجار' : (view==='shipping' ? 'متابعة الشحن اليومي' : (view==='acceptance' ? 'Acceptance / الفيزا' : (view==='offers' ? 'العروض الشهرية' : 'الهيكل التنظيمي'))));
   document.getElementById('dView-dashboard').style.display = view==='dashboard' ? 'block' : 'none';
   document.getElementById('dView-orgchart').style.display = view==='orgchart' ? 'block' : 'none';
   document.getElementById('dView-merchants').style.display = view==='merchants' ? 'block' : 'none';
   document.getElementById('dView-shipping').style.display = view==='shipping' ? 'block' : 'none';
+  document.getElementById('dView-acceptance').style.display = view==='acceptance' ? 'block' : 'none';
   document.getElementById('dView-offers').style.display = view==='offers' ? 'block' : 'none';
   paintDateInfo();
   if(view==='orgchart') renderOrgChartD();
   if(view==='merchants') renderMerchantsView();
   if(view==='shipping') renderShippingView();
+  if(view==='acceptance') renderAcceptanceView();
   if(view==='offers') renderOffersMainView();
 }
 
