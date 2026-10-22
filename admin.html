@@ -467,6 +467,30 @@ function initials(name){ return (name||'?').trim().split(' ').slice(0,2).map(w=>
 function isVacant(name){ return /vacant/i.test(name); }
 function growthOf(n){ return n.totals.lm>0 ? (n.totals.cm-n.totals.lm)/n.totals.lm*100 : null; }
 
+function rawCm(n){ return (n.rawTotals && n.rawTotals.cm!=null) ? n.rawTotals.cm : n.totals.cm; }
+function pctRaw(n){ return n.totals.tgt>0 ? rawCm(n)/n.totals.tgt*100 : 0; }
+function growthRaw(n){ return n.totals.lm>0 ? (rawCm(n)-n.totals.lm)/n.totals.lm*100 : null; }
+function dupCardHtml(n){
+  if(!n.rawTotals || !n.dupPosCount) return '';
+  const diff = n.rawTotals.cm - n.totals.cm;
+  if(diff <= 1) return '';
+  const posWord = n.dupPosCount===1 ? 'نقطة بيع واحدة مسجّلة' : `${fmt(n.dupPosCount)} نقاط بيع مسجّلة`;
+  return `
+    <div class="kpi accent-amber" style="grid-column:1/-1;">
+      <div class="lbl" style="font-size:13px; font-weight:800;">⚠️ الفرق بين الرقم الخام والرقم المحتسب</div>
+      <div style="display:flex; gap:28px; flex-wrap:wrap; align-items:flex-end; margin-top:8px;">
+        <div><div style="font-size:11.5px; color:var(--muted);">الخام من KPI</div><div style="font-size:18px; font-weight:800; color:var(--text); margin-top:2px;">${fmt(n.rawTotals.cm)} ج.م</div></div>
+        <div><div style="font-size:11.5px; color:var(--muted);">المحتسب (حسب سجل الملكية الرسمي)</div><div style="font-size:18px; font-weight:800; color:var(--teal-dark); margin-top:2px;">${fmt(n.totals.cm)} ج.م</div></div>
+        <div><div style="font-size:11.5px; color:var(--muted);">الفرق</div><div style="font-size:18px; font-weight:800; color:var(--amber); margin-top:2px;">${fmt(diff)} ج.م</div></div>
+      </div>
+      <div style="margin-top:10px; font-size:12.5px; color:var(--muted); line-height:1.7;">
+        سبب الفرق: ${posWord} عند أكتر من مندوب في نظام الفوترة — تم احتساب المندوب الحالي فقط حسب سجل الملكية الرسمي.
+      </div>
+      ${dupDetailsBlock(n)}
+    </div>`;
+}
+
+
 function acceptanceTone(pct){
   if(pct >= 70) return {bg:'#E4F6E9', text:'var(--green)', border:'#B7E6C3'};
   if(pct >= 40) return {bg:'#FDF0DD', text:'#B97615', border:'#F5DBA8'};
@@ -1893,16 +1917,15 @@ function renderDashboard(){
   renderDashProduct(node);
 }
 function renderDashKPI(n){
-  const rem = Math.max(n.totals.tgt-n.totals.cm,0);
-  const pv = pctOf(n);
+  const rem = Math.max(n.totals.tgt-rawCm(n),0);
+  const pv = pctRaw(n);
   const reqDaily = DAYS_LEFT>0 ? rem/DAYS_LEFT : 0;
-  const g = growthOf(n);
+  const g = growthRaw(n);
   renderAcceptanceCard(n, 'dAcceptanceCard');
   document.getElementById('dKpiRow').innerHTML = `
     <div class="kpi"><div class="lbl">الهدف الشهري</div><div class="val">${fmt(n.totals.tgt)}<span class="unit">ج.م</span></div></div>
-    <div class="kpi accent-teal"><div class="lbl">المحقق حتى الآن</div><div class="val">${fmt(n.totals.cm)}<span class="unit">ج.م</span></div>
+    <div class="kpi accent-teal"><div class="lbl">المحقق حتى الآن (الخام من KPI)</div><div class="val">${fmt(rawCm(n))}<span class="unit">ج.م</span></div>
       ${g!==null?`<div class="delta ${g>=0?'up':'down'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}% عن الشهر الماضي</div>`:''}
-      ${dupNote(n)}
     </div>
     <div class="kpi accent-amber"><div class="lbl">المتبقي للهدف</div><div class="val">${fmt(rem)}<span class="unit">ج.م</span></div></div>
     <div class="kpi ${pv>=90?'accent-teal':'accent-red'}"><div class="lbl">نسبة التحقيق</div><div class="val">${n.totals.tgt>0?pv.toFixed(1):'—'}<span class="unit">%</span></div></div>
@@ -1912,6 +1935,7 @@ function renderDashKPI(n){
       <div class="pos-bar-track"><div class="pos-bar-fill" style="width:${n.pos&&n.pos.total>0?(n.pos.active/n.pos.total*100):0}%;"></div></div>
       <div style="font-size:14px; color:#fff; font-weight:900; margin-top:8px;">إجمالي ${fmt(n.pos?n.pos.total:0)} نقطة بيع</div>
     </div></div>
+    ${dupCardHtml(n)}
   `;
 }
 function renderDashGauge(n){
@@ -2201,10 +2225,10 @@ function renderAll(){
   const structEntry = SR_BY_CODE[currentUser.username] || {};
   const r = currentRep || {name: currentUser.displayName, totals:{tgt:0,cm:0,lm:0,proj:0}, byProduct:{}, parent:null, key:null};
   const sv = svOf(r), asm = asmOf(r), region = regionOf(r);
-  const rem = Math.max(r.totals.tgt-r.totals.cm,0), pv = pctOf(r);
+  const rem = Math.max(r.totals.tgt-rawCm(r),0), pv = pctRaw(r);
   const reqDaily = DAYS_LEFT>0 ? rem/DAYS_LEFT : 0;
   const s = statusOf(r);
-  const g = growthOf(r);
+  const g = growthRaw(r);
 
   document.getElementById('avatarLg').textContent = initials(r.name);
   document.getElementById('repName').textContent = r.name;
@@ -2220,13 +2244,13 @@ function renderAll(){
   renderAcceptanceCard(r, 'acceptanceCard');
   document.getElementById('kpiRow').innerHTML = `
     <div class="kpi"><div class="lbl">الهدف الشهري</div><div class="val">${fmt(r.totals.tgt)}<span class="unit">ج.م</span></div></div>
-    <div class="kpi accent-teal"><div class="lbl">المحقق حتى الآن</div><div class="val">${fmt(r.totals.cm)}<span class="unit">ج.م</span></div>
+    <div class="kpi accent-teal"><div class="lbl">المحقق حتى الآن (الخام من KPI)</div><div class="val">${fmt(rawCm(r))}<span class="unit">ج.م</span></div>
       ${g!==null?`<div class="delta ${g>=0?'up':'down'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}% عن الشهر الماضي</div>`:''}
-      ${dupNote(r)}
     </div>
     <div class="kpi accent-amber"><div class="lbl">المتبقي للهدف</div><div class="val">${fmt(rem)}<span class="unit">ج.م</span></div></div>
     <div class="kpi"><div class="lbl">المعدل المطلوب/يوم</div><div class="val">${fmt(reqDaily)}<span class="unit">ج.م</span></div></div>
     <div class="kpi ${pv>=90?'accent-teal':'accent-red'}"><div class="lbl">نسبة التحقيق</div><div class="val">${r.totals.tgt>0?pv.toFixed(1):'—'}<span class="unit">%</span></div></div>
+    ${dupCardHtml(r)}
   `;
 
   document.getElementById('needle').style.transform = `rotate(${-90+(Math.max(0,Math.min(150,paceIndexOf(r)))/150)*180}deg)`;
