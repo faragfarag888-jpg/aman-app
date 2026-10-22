@@ -756,6 +756,7 @@ function refreshCurrentDashView(){
   if(currentDashView==='merchants') renderMerchantsView();
   else if(currentDashView==='shipping') renderShippingView();
   else if(currentDashView==='offers') renderOffersMainView();
+  else if(currentDashView==='acceptance') renderAcceptanceView();
   else renderDashboard();
 }
 
@@ -1283,7 +1284,9 @@ function shippingSubTabsHtml(){
 let dashAcceptanceScopeKey = null;
 function collectAcceptanceRecords(scopeKey){
   if(typeof ACCEPTANCE_RECORDS==='undefined' || !scopeKey) return [];
-  const srKeys = new Set(collectSRKeys(scopeKey));
+  let _keys = collectSRKeys(scopeKey);
+  if(!dashUseKpi){ const m = {}; SR_STRUCTURE.forEach(function(x){ if(x.kpiKey) m[x.code] = x.kpiKey; }); _keys = _keys.map(function(k){ return m[k] || k; }); }
+  const srKeys = new Set(_keys);
   return ACCEPTANCE_RECORDS.filter(r=> srKeys.has(r.k));
 }
 function openAcceptanceRecordsModal(title, records){
@@ -1318,13 +1321,14 @@ function renderAcceptanceView(){
   const container = document.getElementById('dView-acceptance');
   const scopeKey = (dashFocusStack && dashFocusStack.length) ? dashFocusStack[dashFocusStack.length-1] : dashRootScope;
   const node = scopeNode(scopeKey);
-  container.innerHTML = '<h3 style="margin-bottom:14px;">💳 Acceptance / الفيزا</h3>' + acceptanceSubTabHtml(node, scopeKey);
+  container.innerHTML = '<h3 style="margin-bottom:14px;">💳 Acceptance / الفيزا' + (node && node.name ? ' <span class="badge-period">'+node.name+'</span>' : '') + '</h3>' + acceptanceSubTabHtml(node, scopeKey);
 }
 function acceptanceSubTabHtml(node, scopeKey){
   dashAcceptanceScopeKey = scopeKey || dashAcceptanceScopeKey;
   const acc = (node && node.acceptance) ? node.acceptance : {machinesTotal:0, machinesWithSales:0, sales:0, repCount:0};
-  const total = acc.machinesTotal||0;
-  const withSales = acc.machinesWithSales||0;
+  const _recs = collectAcceptanceRecords(dashAcceptanceScopeKey);
+  const total = _recs.length;
+  const withSales = _recs.filter(function(r){ return r.withSales; }).length;
   const withoutSales = Math.max(total - withSales, 0);
   const pct = total>0 ? (withSales/total*100) : 0;
   function tile(icon,label,value,sub,fg,bgSoft,onclickFn){
